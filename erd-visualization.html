@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibe Strike - Database Schema ERD</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+      margin-bottom: 30px;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #0f172a;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border-left: 3px solid #0ea5e9;
+    }
+
+    .legend-item.new {
+      border-left-color: #10b981;
+    }
+
+    .legend-item.modified {
+      border-left-color: #f59e0b;
+    }
+
+    .legend-color {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+    }
+
+    .color-new {
+      background: #d1fae5;
+    }
+
+    .color-modified {
+      background: #fef3c7;
+    }
+
+    .color-existing {
+      background: #dbeafe;
+    }
+
+    .legend-text {
+      font-size: 13px;
+      color: #475569;
+    }
+
+    .canvas-container {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+      overflow-x: auto;
+      position: relative;
+    }
+
+    svg {
+      min-width: 100%;
+      display: block;
+    }
+
+    .table {
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .table:hover rect {
+      filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.15));
+    }
+
+    .table:hover text {
+      font-weight: 600;
+    }
+
+    .table-header {
+      font-weight: 600;
+      font-size: 13px;
+      fill: white;
+      text-anchor: middle;
+    }
+
+    .table-title {
+      font-size: 12px;
+      font-weight: 600;
+      fill: #0f172a;
+      text-anchor: start;
+    }
+
+    .field {
+      font-size: 11px;
+      fill: #334155;
+      text-anchor: start;
+    }
+
+    .pk {
+      font-weight: 600;
+      fill: #0f172a;
+    }
+
+    .fk {
+      fill: #64748b;
+      font-style: italic;
+    }
+
+    .relationship-line {
+      stroke: #94a3b8;
+      stroke-width: 1.5;
+      fill: none;
+      marker-end: url(#arrowhead);
+    }
+
+    .relationship-line.many {
+      stroke-dasharray: 3, 3;
+    }
+
+    .cardinality {
+      font-size: 11px;
+      fill: #64748b;
+      font-weight: 500;
+    }
+
+    .tooltip {
+      position: absolute;
+      background: #1e293b;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 1000;
+      max-width: 280px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    .tooltip.visible {
+      opacity: 1;
+    }
+
+    .info-panel {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-top: 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    }
+
+    .info-panel h2 {
+      font-size: 18px;
+      color: #0f172a;
+      margin-bottom: 16px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 12px;
+    }
+
+    .improvements-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 16px;
+    }
+
+    .improvement-card {
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border-left: 3px solid #0ea5e9;
+    }
+
+    .improvement-card.high {
+      border-left-color: #ef4444;
+      background: #fef2f2;
+    }
+
+    .improvement-card.medium {
+      border-left-color: #f59e0b;
+      background: #fffbf0;
+    }
+
+    .improvement-card h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+
+    .improvement-card p {
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.5;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #475569;
+      margin-right: 8px;
+    }
+
+    .badge.high {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .badge.medium {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .note {
+      padding: 16px;
+      background: #f0f9ff;
+      border-left: 3px solid #0ea5e9;
+      border-radius: 8px;
+      margin-top: 16px;
+      font-size: 13px;
+      color: #334155;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🗄️ Vibe Strike - Database Schema ERD</h1>
+      <p class="subtitle">Improved schema with race condition prevention, audit trails, and operational support</p>
+
+      <div class="legend">
+        <div class="legend-item new">
+          <div class="legend-color color-new"></div>
+          <span class="legend-text"><strong>New Tables</strong> – Stock reservations, coupon tracking, alerts</span>
+        </div>
+        <div class="legend-item modified">
+          <div class="legend-color color-modified"></div>
+          <span class="legend-text"><strong>Modified Tables</strong> – Added columns for versioning, SKU, category</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color color-existing"></div>
+          <span class="legend-text"><strong>Existing Tables</strong> – Core tables (minimal changes)</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="canvas-container">
+      <svg id="erdCanvas" width="1400" height="900" viewBox="0 0 1400 900">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+            <polygon points="0 0, 10 3, 0 6" fill="#94a3b8" />
+          </marker>
+        </defs>
+
+        <!-- Relationships -->
+        <line class="relationship-line" x1="150" y1="100" x2="150" y2="200" />
+        <line class="relationship-line" x1="150" y1="200" x2="380" y2="200" />
+        <text class="cardinality" x="160" y="130">1:N</text>
+
+        <line class="relationship-line" x1="380" y1="280" x2="380" y2="350" />
+        <text class="cardinality" x="390" y="315">1:N</text>
+
+        <line class="relationship-line" x1="150" y1="200" x2="550" y2="120" />
+        <text class="cardinality" x="320" y="150">1:N</text>
+
+        <line class="relationship-line" x1="380" y1="280" x2="620" y2="200" />
+        <text class="cardinality" x="480" y="230">1:N</text>
+
+        <line class="relationship-line" x1="380" y1="280" x2="800" y2="120" />
+        <text class="cardinality" x="550" y="190">1:N</text>
+
+        <line class="relationship-line many" x1="380" y1="280" x2="800" y2="220" />
+        <text class="cardinality" x="580" y="260">M:N</text>
+
+        <line class="relationship-line" x1="950" y1="120" x2="800" y2="150" />
+        <text class="cardinality" x="860" y="125">1:1</text>
+
+        <line class="relationship-line" x1="950" y1="200" x2="800" y2="200" />
+        <text class="cardinality" x="860" y="190">1:N</text>
+
+        <!-- CUSTOMER (Existing) -->
+        <g class="table" data-table="customer">
+          <rect x="50" y="100" width="200" height="120" fill="#dbeafe" stroke="#0284c7" stroke-width="2" rx="4" />
+          <rect x="50" y="100" width="200" height="24" fill="#0284c7" rx="4" />
+          <text class="table-header" x="150" y="118">CUSTOMER</text>
+
+          <text class="field pk" x="65" y="135">🔑 id (PK)</text>
+          <text class="field" x="65" y="152">📧 email (UK)</text>
+          <text class="field" x="65" y="169">👤 name</text>
+          <text class="field" x="65" y="186">⏰ created_at</text>
+          <text class="field" x="65" y="203">ℹ️ status</text>
+        </g>
+
+        <!-- PRODUCT (Modified) -->
+        <g class="table" data-table="product">
+          <rect x="550" y="100" width="220" height="150" fill="#fef3c7" stroke="#d97706" stroke-width="2" rx="4" />
+          <rect x="550" y="100" width="220" height="24" fill="#d97706" rx="4" />
+          <text class="table-header" x="660" y="118">PRODUCT</text>
+
+          <text class="field pk" x="565" y="135">🔑 id (PK)</text>
+          <text class="field" x="565" y="152">🆕 sku (UK)</text>
+          <text class="field" x="565" y="169">📦 name</text>
+          <text class="field" x="565" y="186">📝 description</text>
+          <text class="field" x="565" y="203">🏷️ category</text>
+          <text class="field" x="565" y="220">💰 price</text>
+          <text class="field" x="565" y="237">⏰ created_at</text>
+        </g>
+
+        <!-- INVENTORY (New) -->
+        <g class="table" data-table="inventory">
+          <rect x="850" y="100" width="210" height="150" fill="#d1fae5" stroke="#059669" stroke-width="2" rx="4" />
+          <rect x="850" y="100" width="210" height="24" fill="#059669" rx="4" />
+          <text class="table-header" x="955" y="118">INVENTORY</text>
+
+          <text class="field pk" x="865" y="135">🔑 product_id (FK)</text>
+          <text class="field" x="865" y="152">📊 qty_available</text>
+          <text class="field" x="865" y="169">🔒 qty_reserved</text>
+          <text class="field" x="865" y="186">⚠️ reorder_threshold</text>
+          <text class="field" x="865" y="203">🆕 version</text>
+          <text class="field" x="865" y="220">⏰ updated_at</text>
+        </g>
+
+        <!-- ORDERS (Existing) -->
+        <g class="table" data-table="orders">
+          <rect x="300" y="200" width="180" height="120" fill="#dbeafe" stroke="#0284c7" stroke-width="2" rx="4" />
+          <rect x="300" y="200" width="180" height="24" fill="#0284c7" rx="4" />
+          <text class="table-header" x="390" y="218">ORDERS</text>
+
+          <text class="field pk" x="315" y="235">🔑 id (PK)</text>
+          <text class="field fk" x="315" y="252">👤 customer_id (FK)</text>
+          <text class="field" x="315" y="269">📊 status</text>
+          <text class="field" x="315" y="286">💵 total</text>
+          <text class="field" x="315" y="303">⏰ created_at</text>
+        </g>
+
+        <!-- COUPON (Modified) -->
+        <g class="table" data-table="coupon">
+          <rect x="600" y="200" width="200" height="150" fill="#fef3c7" stroke="#d97706" stroke-width="2" rx="4" />
+          <rect x="600" y="200" width="200" height="24" fill="#d97706" rx="4" />
+          <text class="table-header" x="700" y="218">COUPON</text>
+
+          <text class="field pk" x="615" y="235">🔑 id (PK)</text>
+          <text class="field" x="615" y="252">🎟️ code (UK)</text>
+          <text class="field" x="615" y="269">🆕 coupon_type</text>
+          <text class="field" x="615" y="286">💰 value</text>
+          <text class="field" x="615" y="303">⏰ expires_at</text>
+          <text class="field" x="615" y="320">📊 used_count</text>
+          <text class="field" x="615" y="337">📈 max_uses</text>
+        </g>
+
+        <!-- ORDER_ITEM (Existing) -->
+        <g class="table" data-table="order_item">
+          <rect x="300" y="350" width="210" height="120" fill="#dbeafe" stroke="#0284c7" stroke-width="2" rx="4" />
+          <rect x="300" y="350" width="210" height="24" fill="#0284c7" rx="4" />
+          <text class="table-header" x="405" y="368">ORDER_ITEM</text>
+
+          <text class="field pk" x="315" y="385">🔑 id (PK)</text>
+          <text class="field fk" x="315" y="402">📦 order_id (FK)</text>
+          <text class="field fk" x="315" y="419">🏷️ product_id (FK)</text>
+          <text class="field" x="315" y="436">🔢 quantity</text>
+          <text class="field" x="315" y="453">💰 price (snapshot)</text>
+        </g>
+
+        <!-- STOCK_RESERVATION (New) -->
+        <g class="table" data-table="reservation">
+          <rect x="850" y="300" width="240" height="150" fill="#d1fae5" stroke="#059669" stroke-width="2" rx="4" />
+          <rect x="850" y="300" width="240" height="24" fill="#059669" rx="4" />
+          <text class="table-header" x="970" y="318">STOCK_RESERVATION</text>
+
+          <text class="field pk" x="865" y="335">🔑 id (PK)</text>
+          <text class="field fk" x="865" y="352">📦 order_id (FK)</text>
+          <text class="field fk" x="865" y="369">🏷️ product_id (FK)</text>
+          <text class="field" x="865" y="386">🔢 quantity</text>
+          <text class="field" x="865" y="403">🔄 status (held/committed)</text>
+          <text class="field" x="865" y="420">⏰ expires_at</text>
+        </g>
+
+        <!-- COUPON_APPLICATION (New) -->
+        <g class="table" data-table="coupon_app">
+          <rect x="600" y="400" width="240" height="120" fill="#d1fae5" stroke="#059669" stroke-width="2" rx="4" />
+          <rect x="600" y="400" width="240" height="24" fill="#059669" rx="4" />
+          <text class="table-header" x="720" y="418">COUPON_APPLICATION</text>
+
+          <text class="field pk" x="615" y="435">🔑 id (PK)</text>
+          <text class="field fk" x="615" y="452">📦 order_id (FK)</text>
+          <text class="field fk" x="615" y="469">🎟️ coupon_id (FK)</text>
+          <text class="field" x="615" y="486">💵 discount_amount</text>
+          <text class="field" x="615" y="503">⏰ applied_at</text>
+        </g>
+
+        <!-- ORDER_STATUS_HISTORY (New) -->
+        <g class="table" data-table="status_history">
+          <rect x="300" y="520" width="280" height="130" fill="#d1fae5" stroke="#059669" stroke-width="2" rx="4" />
+          <rect x="300" y="520" width="280" height="24" fill="#059669" rx="4" />
+          <text class="table-header" x="440" y="538">ORDER_STATUS_HISTORY</text>
+
+          <text class="field pk" x="315" y="555">🔑 id (PK)</text>
+          <text class="field fk" x="315" y="572">📦 order_id (FK)</text>
+          <text class="field" x="315" y="589">🔄 from_status → to_status</text>
+          <text class="field" x="315" y="606">👤 changed_by</text>
+          <text class="field" x="315" y="623">⏰ changed_at</text>
+          <text class="field" x="315" y="640">📝 metadata (JSON)</text>
+        </g>
+
+        <!-- LOW_STOCK_ALERT (New) -->
+        <g class="table" data-table="alert">
+          <rect x="850" y="500" width="240" height="130" fill="#d1fae5" stroke="#059669" stroke-width="2" rx="4" />
+          <rect x="850" y="500" width="240" height="24" fill="#059669" rx="4" />
+          <text class="table-header" x="970" y="518">LOW_STOCK_ALERT</text>
+
+          <text class="field pk" x="865" y="535">🔑 id (PK)</text>
+          <text class="field fk" x="865" y="552">🏷️ product_id (FK)</text>
+          <text class="field" x="865" y="569">📊 qty_at_trigger</text>
+          <text class="field" x="865" y="586">⚠️ threshold_at_trigger</text>
+          <text class="field" x="865" y="603">🔔 status (open/resolved)</text>
+          <text class="field" x="865" y="620">⏰ triggered_at</text>
+        </g>
+      </svg>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+
+    <div class="info-panel">
+      <h2>📋 Schema Improvements Summary</h2>
+
+      <div class="improvements-grid">
+        <div class="improvement-card high">
+          <span class="badge high">HIGH</span>
+          <h3>1. Stock Reservations</h3>
+          <p>New table to track cart holds, prevents overselling when multiple customers checkout simultaneously. Includes 10-min expiration.</p>
+        </div>
+
+        <div class="improvement-card high">
+          <span class="badge high">HIGH</span>
+          <h3>2. Optimistic Locking</h3>
+          <p>Added <code>version</code> column to INVENTORY. Detects lost updates when concurrent requests modify stock.</p>
+        </div>
+
+        <div class="improvement-card high">
+          <span class="badge high">HIGH</span>
+          <h3>3. Coupon Tracking</h3>
+          <p>New COUPON_APPLICATION table links orders to coupons with discount amounts. Audit trail for usage validation.</p>
+        </div>
+
+        <div class="improvement-card medium">
+          <span class="badge medium">MEDIUM</span>
+          <h3>4. Audit History</h3>
+          <p>ORDER_STATUS_HISTORY logs all status changes with timestamp & operator. Enables order tracking & SLA reports.</p>
+        </div>
+
+        <div class="improvement-card medium">
+          <span class="badge medium">MEDIUM</span>
+          <h3>5. Alert Management</h3>
+          <p>LOW_STOCK_ALERT table tracks inventory warnings. Team can mark resolved to prevent duplicate alerts.</p>
+        </div>
+
+        <div class="improvement-card medium">
+          <span class="badge medium">MEDIUM</span>
+          <h3>6. Inventory Separation</h3>
+          <p>New INVENTORY table separates product metadata from stock levels. Tracks qty_available vs qty_reserved.</p>
+        </div>
+
+        <div class="improvement-card">
+          <span class="badge">QUICK WIN</span>
+          <h3>7. Product Fields</h3>
+          <p>Added <code>sku</code> (unique), <code>category</code> to PRODUCT. Enables filtering, external integrations.</p>
+        </div>
+
+        <div class="improvement-card">
+          <span class="badge">QUICK WIN</span>
+          <h3>8. Coupon Types</h3>
+          <p>Added <code>coupon_type</code> field (global / first_order / customer_specific) for flexible promotion strategies.</p>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>✅ Implementation Plan:</strong><br>
+        <strong>Phase 1 (Must Have):</strong> Stock reservations, versioning, coupon tracking — fixes race conditions & enables atomic orders.<br>
+        <strong>Phase 2 (Should Have):</strong> Inventory table, status history, alerts — ops visibility & audit trail.<br>
+        <strong>Phase 3 (Nice to Have):</strong> SKU/category, metrics view — analytics ready.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tables = [
+      { name: 'CUSTOMER', key: 'customer' },
+      { name: 'PRODUCT', key: 'product' },
+      { name: 'INVENTORY', key: 'inventory' },
+      { name: 'ORDERS', key: 'orders' },
+      { name: 'COUPON', key: 'coupon' },
+      { name: 'ORDER_ITEM', key: 'order_item' },
+      { name: 'STOCK_RESERVATION', key: 'reservation' },
+      { name: 'COUPON_APPLICATION', key: 'coupon_app' },
+      { name: 'ORDER_STATUS_HISTORY', key: 'status_history' },
+      { name: 'LOW_STOCK_ALERT', key: 'alert' }
+    ];
+
+    const descriptions = {
+      customer: 'Stores customer profiles. Every order belongs to a customer.',
+      product: 'Core product catalog with pricing. Modified to include SKU and category.',
+      inventory: 'NEW: Separates stock management from product metadata. Tracks available vs reserved quantities.',
+      orders: 'Customer orders with total and status. Links to customer and inventory.',
+      coupon: 'Modified: Coupons now support multiple types (global, first-order, customer-specific).',
+      order_item: 'Line items in orders. Preserves price snapshot at purchase time.',
+      reservation: 'NEW: Tracks cart holds with 10-minute expiration. Prevents overselling during checkout.',
+      coupon_app: 'NEW: Audit trail of which coupons were applied to which orders. Enables single-use validation.',
+      status_history: 'NEW: Complete order status transition log. Essential for UC4 tracking & SLA monitoring.',
+      alert: 'NEW: Tracks low-stock alerts. Team can acknowledge/resolve to prevent duplicates.'
+    };
+
+    document.querySelectorAll('.table').forEach(el => {
+      el.addEventListener('mouseenter', (e) => {
+        const table = el.getAttribute('data-table');
+        const tooltip = document.getElementById('tooltip');
+        const tableInfo = tables.find(t => t.key === table);
+
+        tooltip.textContent = `${tableInfo.name}: ${descriptions[table]}`;
+        tooltip.classList.add('visible');
+
+        const rect = el.getBoundingClientRect();
+        tooltip.style.left = rect.left + 'px';
+        tooltip.style.top = (rect.top - 50) + 'px';
+      });
+
+      el.addEventListener('mouseleave', () => {
+        const tooltip = document.getElementById('tooltip');
+        tooltip.classList.remove('visible');
+      });
+    });
+  </script>
+</body>
+</html>

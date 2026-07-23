@@ -1,0 +1,1204 @@
+openapi: 3.0.0
+info:
+  title: Vibe Strike - Order & Inventory Engine API
+  description: |
+    Real-time e-commerce backend for order and inventory management.
+    Supports 4 independent use cases with atomic database transactions.
+    - UC1: Browse Products & Place Order (atomic stock check)
+    - UC2: Promotions & Discounts (coupon validation)
+    - UC3: Inventory Management (low-stock alerts, restock)
+    - UC4: Order Status Tracking (order history, status updates)
+  version: 1.0.0
+  contact:
+    name: Vibe Strike Development Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.vibrestrike.com
+    description: Production server
+
+tags:
+  - name: UC1 - Browse & Order
+    description: Product listing and atomic order placement
+  - name: UC2 - Promotions
+    description: Coupon validation and promotion management
+  - name: UC3 - Inventory
+    description: Inventory levels, low-stock alerts, restock operations (ops only)
+  - name: UC4 - Tracking
+    description: Order status tracking and history (ops access for updates)
+  - name: AI - Recommendations
+    description: Claude AI-powered product recommendations
+
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      tags:
+        - UC1 - Browse & Order
+      summary: List all available products
+      description: |
+        Retrieve paginated list of all products with current stock levels.
+        Stock levels are real-time and updated atomically on order placement.
+      parameters:
+        - name: skip
+          in: query
+          description: Number of records to skip (for pagination)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Successfully retrieved product list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/{product_id}:
+    get:
+      operationId: getProduct
+      tags:
+        - UC1 - Browse & Order
+      summary: Get product details
+      description: |
+        Retrieve detailed information for a single product, including current stock level.
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          description: Product ID
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Product details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders:
+    post:
+      operationId: createOrder
+      tags:
+        - UC1 - Browse & Order
+      summary: Place a new order (atomic)
+      description: |
+        Create a new order with atomic stock verification and decrement.
+
+        **Critical Implementation Details:**
+        - Uses SERIALIZABLE transaction isolation level
+        - Acquires FOR UPDATE locks on all requested products
+        - Verifies all items in stock before committing any changes
+        - If any item is out of stock, entire transaction rolls back
+        - Applies coupon discount if coupon_code is provided (validated via UC2)
+        - Updates coupon used_count atomically
+
+        **Race Condition Prevention:**
+        - Two concurrent requests for the last unit (stock=1) cannot both succeed
+        - Only the request that acquires the FOR UPDATE lock first will proceed
+        - Second request receives 409 OutOfStock error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: |
+            Invalid request:
+            - Missing required fields
+            - Invalid quantities or customer_id
+            - Coupon expired or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            Resource not found:
+            - Product or Customer does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: |
+            Conflict (race condition):
+            - Out of stock for one or more items
+            - Stock was reserved by another concurrent order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{order_id}:
+    get:
+      operationId: getOrder
+      tags:
+        - UC4 - Tracking
+      summary: Get order status and details
+      description: |
+        Retrieve full details of an order including items, pricing, and current status.
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: Order ID
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Order retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{order_id}/status:
+    patch:
+      operationId: updateOrderStatus
+      tags:
+        - UC4 - Tracking
+      summary: Update order status (ops only)
+      description: |
+        Update the status of an existing order. Only valid status transitions are allowed.
+
+        **Valid Transitions:**
+        - pending → confirmed
+        - confirmed → shipped
+        - shipped → delivered
+
+        **Access Control:**
+        Requires operations/admin role. Not available to customers.
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: Order ID
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderStatusRequest'
+      responses:
+        '200':
+          description: Order status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: |
+            Invalid request:
+            - Invalid status value
+            - Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied (requires ops/admin role)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /customers/{customer_id}/orders:
+    get:
+      operationId: listCustomerOrders
+      tags:
+        - UC4 - Tracking
+      summary: List customer order history
+      description: |
+        Retrieve paginated list of all orders placed by a specific customer.
+        Sorted by most recent first.
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          description: Customer ID
+          schema:
+            type: integer
+            minimum: 1
+        - name: skip
+          in: query
+          description: Number of records to skip
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Customer order history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /inventory:
+    get:
+      operationId: listInventory
+      tags:
+        - UC3 - Inventory
+      summary: Get all inventory levels (ops only)
+      description: |
+        Retrieve current stock levels for all products.
+
+        **Access Control:**
+        Requires operations/admin role. Not available to customers.
+      parameters:
+        - name: skip
+          in: query
+          description: Number of records to skip
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Inventory levels retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryListResponse'
+        '403':
+          description: Access denied (requires ops/admin role)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /inventory/low-stock:
+    get:
+      operationId: getLowStockAlerts
+      tags:
+        - UC3 - Inventory
+      summary: Get low-stock alerts (ops only)
+      description: |
+        Retrieve products with stock levels below their configured thresholds.
+        Results are sorted by urgency (critical first).
+
+        **Urgency Levels:**
+        - CRITICAL: stock <= threshold / 5
+        - WARNING: threshold / 5 < stock < threshold
+
+        **Access Control:**
+        Requires operations/admin role. Not available to customers.
+      parameters:
+        - name: skip
+          in: query
+          description: Number of records to skip
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Low-stock alerts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LowStockAlertListResponse'
+        '403':
+          description: Access denied (requires ops/admin role)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /inventory/{product_id}:
+    patch:
+      operationId: restockProduct
+      tags:
+        - UC3 - Inventory
+      summary: Restock a product (ops only)
+      description: |
+        Add inventory to a product. Updates stock level atomically.
+
+        **Access Control:**
+        Requires operations/admin role. Not available to customers.
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          description: Product ID
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestockRequest'
+      responses:
+        '200':
+          description: Product restocked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItem'
+        '400':
+          description: |
+            Invalid request:
+            - Invalid quantity (must be positive integer)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied (requires ops/admin role)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /coupons/validate:
+    post:
+      operationId: validateCoupon
+      tags:
+        - UC2 - Promotions
+      summary: Validate coupon code
+      description: |
+        Check if a coupon code is valid and return discount details.
+
+        **Validation Checks:**
+        - Code exists in database
+        - Not expired (expires_at > now)
+        - Within usage limits (used_count < max_uses, or max_uses is null for unlimited)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateCouponRequest'
+      responses:
+        '200':
+          description: Coupon is valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidCouponResponse'
+        '400':
+          description: |
+            Coupon is invalid:
+            - Code does not exist
+            - Coupon has expired
+            - Usage limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /promotions:
+    get:
+      operationId: listPromotions
+      tags:
+        - UC2 - Promotions
+      summary: List active promotions
+      description: |
+        Retrieve all currently active (non-expired) promotional coupon codes.
+        Results are sorted by expiration date.
+      parameters:
+        - name: skip
+          in: query
+          description: Number of records to skip
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Active promotions retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromotionListResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{order_id}/recommendations:
+    get:
+      operationId: getRecommendations
+      tags:
+        - AI - Recommendations
+      summary: Get AI-powered product recommendations
+      description: |
+        Retrieve Claude AI-generated product recommendations based on the customer's order history.
+
+        **How it works:**
+        1. Loads customer's order history (5 most recent orders)
+        2. Loads current order items
+        3. Loads full product catalog
+        4. Calls Anthropic Claude API for intelligent recommendations
+        5. Returns complementary products as suggested items
+
+        **Processing:**
+        - This is a synchronous call that may take 1-2 seconds
+        - Recommendations are generated fresh each time
+        - Results include reasoning for each recommendation
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: Order ID (typically called after order placement)
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Recommendations generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationsResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Claude API unavailable or rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    # Core Schemas
+    Product:
+      type: object
+      required:
+        - id
+        - name
+        - price
+        - stock
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Unique product identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Product name
+        description:
+          type: string
+          nullable: true
+          description: Detailed product description
+        price:
+          type: number
+          format: decimal
+          minimum: 0
+          exclusiveMinimum: true
+          description: Product price in USD (must be > 0)
+        stock:
+          type: integer
+          minimum: 0
+          description: Current available stock (real-time, atomically updated)
+        low_stock_threshold:
+          type: integer
+          minimum: 0
+          default: 10
+          description: Threshold for low-stock alerts
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when product was created
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp of last update
+
+    Customer:
+      type: object
+      required:
+        - id
+        - email
+        - name
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Unique customer identifier
+        email:
+          type: string
+          format: email
+          description: Customer email address (unique)
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Customer full name
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+
+    OrderItem:
+      type: object
+      required:
+        - id
+        - order_id
+        - product_id
+        - quantity
+        - price
+        - subtotal
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Unique order item identifier
+        order_id:
+          type: integer
+          minimum: 1
+          description: Parent order ID
+        product_id:
+          type: integer
+          minimum: 1
+          description: Product ID
+        product:
+          $ref: '#/components/schemas/Product'
+          description: Full product details (if included in response)
+        quantity:
+          type: integer
+          minimum: 1
+          description: Quantity ordered
+        price:
+          type: number
+          format: decimal
+          description: Unit price at time of order (snapshot)
+        subtotal:
+          type: number
+          format: decimal
+          description: Line item total (price * quantity)
+        created_at:
+          type: string
+          format: date-time
+          description: Item creation timestamp
+
+    Order:
+      type: object
+      required:
+        - id
+        - customer_id
+        - status
+        - items
+        - subtotal
+        - discount_amount
+        - total
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Unique order identifier
+        customer_id:
+          type: integer
+          minimum: 1
+          description: Customer who placed the order
+        customer:
+          $ref: '#/components/schemas/Customer'
+          description: Full customer details (if included)
+        status:
+          type: string
+          enum:
+            - pending
+            - confirmed
+            - shipped
+            - delivered
+          description: Current order status
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          description: Line items in the order
+        subtotal:
+          type: number
+          format: decimal
+          minimum: 0
+          description: Sum of all line item subtotals (before discount)
+        discount_amount:
+          type: number
+          format: decimal
+          minimum: 0
+          default: 0
+          description: Discount amount applied (if coupon used)
+        total:
+          type: number
+          format: decimal
+          minimum: 0
+          description: Final order total (subtotal - discount_amount)
+        coupon_code:
+          type: string
+          nullable: true
+          description: Coupon code applied (if any)
+        created_at:
+          type: string
+          format: date-time
+          description: Order creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Order last update timestamp
+
+    InventoryItem:
+      type: object
+      required:
+        - product_id
+        - product_name
+        - stock
+        - price
+        - low_stock_threshold
+      properties:
+        product_id:
+          type: integer
+          minimum: 1
+        product_name:
+          type: string
+        stock:
+          type: integer
+          minimum: 0
+        price:
+          type: number
+          format: decimal
+        low_stock_threshold:
+          type: integer
+          minimum: 0
+        updated_at:
+          type: string
+          format: date-time
+
+    LowStockAlert:
+      type: object
+      required:
+        - product_id
+        - product_name
+        - stock
+        - low_stock_threshold
+        - urgency
+      properties:
+        product_id:
+          type: integer
+          minimum: 1
+        product_name:
+          type: string
+        stock:
+          type: integer
+          minimum: 0
+        low_stock_threshold:
+          type: integer
+        urgency:
+          type: string
+          enum:
+            - CRITICAL
+            - WARNING
+          description: |
+            CRITICAL if stock <= threshold/5, otherwise WARNING
+
+    Coupon:
+      type: object
+      required:
+        - id
+        - code
+        - discount_type
+        - value
+        - expires_at
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        code:
+          type: string
+          maxLength: 50
+          description: Coupon code (unique)
+        description:
+          type: string
+          nullable: true
+        discount_type:
+          type: string
+          enum:
+            - percent
+            - fixed
+          description: Discount type (percentage or fixed amount)
+        value:
+          type: number
+          format: decimal
+          minimum: 0
+          exclusiveMinimum: true
+          description: Discount value
+        expires_at:
+          type: string
+          format: date-time
+          description: Coupon expiration date
+        max_uses:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Maximum uses (null = unlimited)
+        used_count:
+          type: integer
+          minimum: 0
+          description: Current usage count
+        created_at:
+          type: string
+          format: date-time
+
+    # Request Schemas
+    CreateOrderRequest:
+      type: object
+      required:
+        - customer_id
+        - items
+      properties:
+        customer_id:
+          type: integer
+          minimum: 1
+          description: Customer placing the order
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderItemRequest'
+          description: List of items to order
+        coupon_code:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: Optional coupon code for discount
+
+    OrderItemRequest:
+      type: object
+      required:
+        - product_id
+        - quantity
+      properties:
+        product_id:
+          type: integer
+          minimum: 1
+        quantity:
+          type: integer
+          minimum: 1
+          description: Quantity to order
+
+    UpdateOrderStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+            - confirmed
+            - shipped
+            - delivered
+          description: New status
+
+    RestockRequest:
+      type: object
+      required:
+        - quantity
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          description: Quantity to add to stock
+
+    ValidateCouponRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Coupon code to validate
+
+    # Response Schemas
+    ProductListResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        total:
+          type: integer
+          minimum: 0
+          description: Total count of products
+
+    OrderListResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        total:
+          type: integer
+          minimum: 0
+          description: Total count of orders for customer
+
+    InventoryListResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryItem'
+        total:
+          type: integer
+          minimum: 0
+
+    LowStockAlertListResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LowStockAlert'
+        total:
+          type: integer
+          minimum: 0
+
+    PromotionListResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coupon'
+        total:
+          type: integer
+          minimum: 0
+
+    ValidCouponResponse:
+      type: object
+      required:
+        - code
+        - valid
+        - discount_type
+        - value
+        - expires_at
+      properties:
+        code:
+          type: string
+        valid:
+          type: boolean
+          description: True if coupon is valid and applicable
+        discount_type:
+          type: string
+          enum:
+            - percent
+            - fixed
+        value:
+          type: number
+          format: decimal
+        expires_at:
+          type: string
+          format: date-time
+        remaining_uses:
+          type: integer
+          nullable: true
+          description: Remaining uses (null if unlimited)
+
+    RecommendationsResponse:
+      type: object
+      required:
+        - recommendations
+      properties:
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+          description: List of recommended products
+
+    Recommendation:
+      type: object
+      required:
+        - product_id
+        - name
+        - price
+        - reason
+      properties:
+        product_id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        price:
+          type: number
+          format: decimal
+        stock:
+          type: integer
+        reason:
+          type: string
+          description: Why Claude recommended this product
+
+    # Error Schema
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type/code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          nullable: true
+          description: Additional error details
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        JWT Bearer token authentication.
+        Include token in Authorization header: Bearer <token>
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for server-to-server authentication
+
+security:
+  - bearerAuth: []
+  - apiKey: []
+
+x-vibe-strike-config:
+  atomicity:
+    isolation_level: SERIALIZABLE
+    lock_strategy: FOR UPDATE (row-level exclusive locks)
+    consistency: All-or-nothing order placement (no partial orders)
+
+  raceConditionPrevention:
+    mechanism: |
+      Database-level atomicity via SERIALIZABLE isolation + FOR UPDATE locks.
+      Two concurrent requests for the last unit (stock=1) result in:
+      1. Request A acquires FOR UPDATE lock (succeeds)
+      2. Request B waits for lock (blocks)
+      3. Request A decrements stock from 1 to 0, commits (lock released)
+      4. Request B acquires lock, checks stock >= 1 (fails, stock is 0)
+      5. Request B returns 409 OutOfStock error
+
+  authentication:
+    requirementsPerEndpoint:
+      listProducts: Public (no auth required)
+      getProduct: Public (no auth required)
+      createOrder: Customer auth required
+      getOrder: Customer auth required (own order) or ops role
+      updateOrderStatus: Ops/Admin role required
+      listCustomerOrders: Customer auth required (own orders) or ops role
+      listInventory: Ops/Admin role required
+      restockProduct: Ops/Admin role required
+      getLowStockAlerts: Ops/Admin role required
+      validateCoupon: Public (no auth required)
+      listPromotions: Public (no auth required)
+      getRecommendations: Customer auth required (own order)
+
+  concurrency:
+    maxConcurrentTransactions: 1000
+    transactionTimeout: 30 seconds
+    deadlockHandling: Automatic rollback and retry (3 attempts)

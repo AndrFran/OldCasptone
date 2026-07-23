@@ -2,10 +2,11 @@
 # All UC teams import models from here
 # DO NOT add models without team consensus
 
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, CheckConstraint
+from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, CheckConstraint, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from decimal import Decimal
 
 Base = declarative_base()
 
@@ -23,10 +24,26 @@ class Product(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    order_items = relationship("OrderItem", back_populates="product")
+    order_items = relationship("OrderItem", back_populates="product", cascade="all")
+
+    # Indexes for common queries and FOR UPDATE locks
+    __table_args__ = (
+        Index("idx_products_stock", "id", "stock"),  # For stock check queries + FOR UPDATE
+        Index("idx_products_low_stock", "stock", "low_stock_threshold"),  # For low-stock alerts
+        CheckConstraint("price > 0", name="ck_product_price_positive"),
+        CheckConstraint("stock >= 0", name="ck_product_stock_non_negative"),
+    )
 
     def __repr__(self):
-        return f"<Product(id={self.id}, name='{self.name}', stock={self.stock})>"
+        return f"<Product(id={self.id}, name='{self.name}', stock={self.stock}, price={self.price})>"
+
+    def is_low_stock(self) -> bool:
+        """Check if product is below low stock threshold"""
+        return self.stock < self.low_stock_threshold
+
+    def can_fulfill(self, quantity: int) -> bool:
+        """Check if we can fulfill requested quantity"""
+        return self.stock >= quantity
 
 
 class Customer(Base):
@@ -62,8 +79,38 @@ class Order(Base):
     customer = relationship("Customer", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
+    # Indexes for common queries
+    __table_args__ = (
+        Index("idx_orders_customer_id", "customer_id"),
+        Index("idx_orders_status", "status"),
+        Index("idx_orders_created_at", "created_at"),
+        CheckConstraint("subtotal >= 0", name="ck_order_subtotal_non_negative"),
+        CheckConstraint("discount_amount >= 0", name="ck_order_discount_non_negative"),
+        CheckConstraint("total >= 0", name="ck_order_total_non_negative"),
+    )
+
     def __repr__(self):
         return f"<Order(id={self.id}, customer_id={self.customer_id}, status='{self.status}', total={self.total})>"
+
+    def calculate_total(self):
+        """Calculate order total from items"""
+        self.subtotal = sum(Decimal(item.subtotal) for item in self.items)
+        self.total = self.subtotal - (self.discount_amount or Decimal(0))
+
+    @staticmethod
+    def get_valid_statuses():
+        """Get valid order status transitions"""
+        return ["pending", "confirmed", "shipped", "delivered"]
+
+    def can_transition_to(self, new_status: str) -> bool:
+        """Check if status transition is valid"""
+        valid_transitions = {
+            "pending": ["confirmed", "cancelled"],
+            "confirmed": ["shipped", "cancelled"],
+            "shipped": ["delivered"],
+            "delivered": [],
+        }
+        return new_status in valid_transitions.get(self.status, [])
 
 
 class OrderItem(Base):
@@ -80,6 +127,15 @@ class OrderItem(Base):
     # Relationships
     order = relationship("Order", back_populates="items")
     product = relationship("Product", back_populates="order_items")
+
+    # Indexes for common queries
+    __table_args__ = (
+        Index("idx_order_items_order_id", "order_id"),
+        Index("idx_order_items_product_id", "product_id"),
+        CheckConstraint("quantity > 0", name="ck_orderitem_quantity_positive"),
+        CheckConstraint("price > 0", name="ck_orderitem_price_positive"),
+        CheckConstraint("subtotal > 0", name="ck_orderitem_subtotal_positive"),
+    )
 
     def __repr__(self):
         return f"<OrderItem(id={self.id}, order_id={self.order_id}, product_id={self.product_id}, qty={self.quantity})>"
@@ -98,8 +154,17 @@ class Coupon(Base):
     used_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Indexes for common queries
+    __table_args__ = (
+        Index("idx_coupons_code", "code"),
+        Index("idx_coupons_expires_at", "expires_at"),
+        CheckConstraint("discount_type IN ('percent', 'fixed')", name="ck_coupon_discount_type"),
+        CheckConstraint("value > 0", name="ck_coupon_value_positive"),
+        CheckConstraint("used_count >= 0", name="ck_coupon_used_count_non_negative"),
+    )
+
     def __repr__(self):
-        return f"<Coupon(code='{self.code}', discount_type='{self.discount_type}', value={self.value})>"
+        return f"<Coupon(code='{self.code}', discount_type='{self.discount_type}', value={self.value}, expires_at={self.expires_at})>"
 
     def is_valid(self) -> bool:
         """Check if coupon is valid (not expired, within usage limits)"""
@@ -109,6 +174,14 @@ class Coupon(Base):
         if self.max_uses is not None and self.used_count >= self.max_uses:
             return False
         return True
+
+    def is_expired(self) -> bool:
+        """Check if coupon is expired"""
+        return self.expires_at < datetime.utcnow()
+
+    def is_exhausted(self) -> bool:
+        """Check if coupon has exceeded max uses"""
+        return self.max_uses is not None and self.used_count >= self.max_uses
 
     def get_remaining_uses(self) -> int:
         """Get remaining uses count (-1 if unlimited)"""

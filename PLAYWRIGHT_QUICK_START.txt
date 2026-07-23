@@ -1,0 +1,195 @@
+═══════════════════════════════════════════════════════════════════════════════
+  PLAYWRIGHT MCP + TDD INTEGRATION - QUICK START
+═══════════════════════════════════════════════════════════════════════════════
+
+SETUP COMPLETE ✓
+
+Files Created:
+  ✓ playwright-mcp.js                    - MCP server (11 browser tools)
+  ✓ .mcp.json                            - MCP server registration
+  ✓ .claude/skills/playwright-tdd.md     - TDD workflow guide
+  ✓ PLAYWRIGHT_TDD_SETUP.md              - Detailed setup docs
+  ✓ frontend/package.json                - Updated with Playwright
+
+───────────────────────────────────────────────────────────────────────────────
+GET STARTED IN 3 STEPS
+───────────────────────────────────────────────────────────────────────────────
+
+1. Install dependencies:
+   $ cd frontend
+   $ npm install
+
+2. Start frontend dev server:
+   $ npm run dev
+   → Running at http://localhost:5173
+
+3. Use TDD skill in Claude Code:
+   Type: /playwright-tdd
+   → Access Playwright browser automation tools
+
+───────────────────────────────────────────────────────────────────────────────
+PLAYWRIGHT TOOLS AVAILABLE
+───────────────────────────────────────────────────────────────────────────────
+
+Browser Lifecycle:
+  • launch_browser()     - Start Chromium (headless by default)
+  • new_page(id)        - Create test page
+  • close_page(id)      - Close page
+  • close_browser()     - Stop browser
+
+Navigation & Waits:
+  • goto(page, url)     - Navigate to URL
+  • wait_for_selector() - Wait for element to appear
+
+User Interaction:
+  • click(page, selector)       - Click element
+  • fill(page, selector, text)  - Type into input
+  • get_text(page, selector)    - Read element content
+
+Debugging:
+  • take_screenshot(page)       - Save visual snapshot
+  • evaluate(page, script)      - Run JavaScript in page
+
+───────────────────────────────────────────────────────────────────────────────
+TDD PATTERN (RED → GREEN → BLUE)
+───────────────────────────────────────────────────────────────────────────────
+
+RED PHASE: Write failing test
+  1. launch_browser()
+  2. new_page('test-page')
+  3. goto('test-page', 'http://localhost:5173/')
+  4. wait_for_selector('test-page', '[data-testid="feature"]')
+  ❌ FAILS → Feature not implemented yet
+
+GREEN PHASE: Implement feature
+  1. Write React component
+  2. Add data-testid attribute
+  3. Rerun test
+  ✓ PASSES → Feature works!
+
+BLUE PHASE: Refactor
+  1. Extract components
+  2. Optimize code
+  3. Rerun test to verify nothing broke
+  ✓ STILL PASSES → Refactor successful
+
+───────────────────────────────────────────────────────────────────────────────
+EXAMPLE: TEST PRODUCT LISTING (UC1)
+───────────────────────────────────────────────────────────────────────────────
+
+// RED: Write test for missing feature
+await launch_browser()
+await new_page('products')
+await goto('products', 'http://localhost:5173/')
+await wait_for_selector('products', '[data-testid="product-card"]')
+// ❌ TIMEOUT: Element not found → Need to implement ProductList
+
+// Implement in React:
+// frontend/src/components/ProductList.jsx
+// <div data-testid="product-card">Product 1</div>
+
+// GREEN: Rerun test
+await wait_for_selector('products', '[data-testid="product-card"]')
+// ✓ PASSES: Element found!
+
+// BLUE: Refactor & verify
+// Extract ProductCard component, optimize rendering
+await wait_for_selector('products', '[data-testid="product-card"]')
+// ✓ STILL PASSES: Refactoring successful
+
+───────────────────────────────────────────────────────────────────────────────
+TESTING BY USE CASE
+───────────────────────────────────────────────────────────────────────────────
+
+UC1 - Browse & Order:
+  • Product listing page
+  • Product detail page
+  • Add to cart functionality
+  • Inventory checks
+
+UC2 - Discounts:
+  • Coupon input field
+  • Discount application
+  • Price calculation
+
+UC3 - Inventory:
+  • Low-stock alerts
+  • Restock button
+  • Inventory dashboard
+
+UC4 - Order Tracking:
+  • Order list page
+  • Order detail page
+  • Status updates
+
+───────────────────────────────────────────────────────────────────────────────
+CRITICAL TIP: USE data-testid
+───────────────────────────────────────────────────────────────────────────────
+
+Add to every testable element:
+  <button data-testid="add-to-cart">Add to Cart</button>
+  <div data-testid="product-card">...</div>
+  <input data-testid="coupon-input" />
+
+Then reference in tests:
+  await click('page', '[data-testid="add-to-cart"]')
+  await wait_for_selector('page', '[data-testid="product-card"]')
+
+Why? Stable selectors that don't break when styling changes.
+
+───────────────────────────────────────────────────────────────────────────────
+TROUBLESHOOTING
+───────────────────────────────────────────────────────────────────────────────
+
+"Element not found" timeout
+  → Check selector: [data-testid="xyz"] (case sensitive!)
+  → Element hidden? (display: none, opacity: 0)
+  → Use take_screenshot() to see actual page
+
+"Browser not launched" error
+  → Call launch_browser() first in your test
+  → Check Node.js version (16+)
+
+MCP server not available
+  → Run: npm install (in frontend/)
+  → Restart Claude Code
+  → Check .mcp.json exists in project root
+
+Port 5173 in use
+  → npm run dev -- --port 5174
+  → Or: lsof -i :5173 | kill -9 <pid>
+
+───────────────────────────────────────────────────────────────────────────────
+DOCUMENTATION FILES
+───────────────────────────────────────────────────────────────────────────────
+
+PLAYWRIGHT_TDD_SETUP.md   - Complete setup & workflow guide
+.claude/skills/playwright-tdd.md  - TDD patterns & best practices
+playwright-mcp.js         - Source code of MCP server
+
+───────────────────────────────────────────────────────────────────────────────
+NEXT STEPS
+───────────────────────────────────────────────────────────────────────────────
+
+1. ✓ Installation:
+   cd frontend && npm install
+
+2. ✓ Start dev server:
+   npm run dev
+
+3. ✓ Test in Claude Code:
+   /playwright-tdd
+
+4. Write first test for UC1 product listing
+
+5. Implement ProductList component
+
+6. Verify test passes
+
+7. Move to UC2, UC3, UC4
+
+8. Iterate: Red → Green → Blue → Repeat
+
+═══════════════════════════════════════════════════════════════════════════════
+Happy Testing! 🚀
+═══════════════════════════════════════════════════════════════════════════════

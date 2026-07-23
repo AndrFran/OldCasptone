@@ -1,93 +1,191 @@
-# Capsotne
+# Vibe Strike: Order & Inventory Engine
 
+Real-time e-commerce backend for a mid-size retailer, built by 4 independent teams developing in parallel.
 
+**Demo Duration:** 4 hours  
+**Tech Stack:** FastAPI (Python) + PostgreSQL + React (Vite) + Tailwind CSS
 
-## Getting started
+> **New to this project?** Start with [START_HERE.md](START_HERE.md) for a complete onboarding guide.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+---
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Quick Start
 
-## Add your files
+### 1. Setup Database
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+```bash
+# Install PostgreSQL (or use Supabase/Neon/Render)
+# Create database
+createdb vibestrike
+
+# Initialize schema
+psql vibestrike < database/schema.sql
+```
+
+### 2. Setup Backend
+
+```bash
+cd backend
+cp ../.env.example .env
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+**API Available at:** `http://localhost:8000`  
+**Swagger Docs:** `http://localhost:8000/docs`
+
+### 3. Setup Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+**Frontend Available at:** `http://localhost:5173`
+
+---
+
+## Project Structure
 
 ```
-cd existing_repo
-git remote add origin https://portal-ua.globallogic.com/gitlab/andriy.franko/capsotne.git
-git branch -M main
-git push -uf origin main
+capsotne/
+├── CLAUDE.md                      # Team roles, tech stack, UC overview
+├── PARALLEL_DEVELOPMENT.md        # How 4 teams work independently
+├── INTEGRATION_GUIDE.md           # How UC integrations work
+├── TECH_STACK.md                  # Detailed tech decisions
+│
+├── api-contracts/                 # Shared API spec (READ-ONLY)
+│   └── openapi-spec.yaml
+│
+├── database/                      # Shared database schema
+│   ├── schema.sql
+│   └── migrations/
+│
+├── backend/
+│   ├── main.py                    # FastAPI entry point
+│   ├── config.py                  # Configuration
+│   ├── requirements.txt
+│   ├── shared/                    # Shared: models, DB, exceptions
+│   ├── uc1-browse-order/          # UC1: Products & Orders
+│   ├── uc2-promotions/            # UC2: Coupons & Discounts
+│   ├── uc3-inventory/             # UC3: Inventory & Alerts
+│   └── uc4-order-tracking/        # UC4: Order Tracking
+│
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.js
+│   └── src/
+│       ├── pages/uc1-products/    # UC1: Product pages, cart, checkout
+│       ├── pages/uc2-promotions/  # UC2: Coupon input
+│       ├── pages/uc3-inventory/   # UC3: Ops dashboard
+│       ├── pages/uc4-tracking/    # UC4: Order tracking
+│       ├── hooks/                 # Custom React hooks per UC
+│       └── api/                   # API clients per UC
+│
+└── tests/
+    ├── integration/               # Cross-UC integration tests
+    └── concurrent/                # Stress tests
 ```
 
-## Integrate with your tools
+---
 
-* [Set up project integrations](https://portal-ua.globallogic.com/gitlab/andriy.franko/capsotne/-/settings/integrations)
+## Use Cases
 
-## Collaborate with your team
+| UC | Name | Team | Key Feature |
+|---|------|------|-------------|
+| **UC1** | Browse Products & Place Order | Backend + Frontend | Atomic stock update (race condition safe) |
+| **UC2** | Discounts & Coupon Codes | Backend + Frontend | Auto-apply coupons at checkout |
+| **UC3** | Inventory Management & Alerts | Backend + Frontend (Ops) | Real-time low-stock alerts |
+| **UC4** | Order Status Tracking | Backend + Frontend | Order tracking & ops queue |
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+**See detailed specs:** Each UC has its own [backend/uc*/README.md](backend/)
 
-## Test and Deploy
+---
 
-Use the built-in continuous integration in GitLab.
+## Demo Checklist
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+- [ ] Customer browses products (stock visible)
+- [ ] Add item to cart, apply coupon, see discount applied
+- [ ] Place order → receives order ID
+- [ ] Order appears in ops manager queue
+- [ ] Ops manager sees low-stock alerts
+- [ ] Ops manager updates order status → customer sees it tracked
+- [ ] Two concurrent orders for last unit → only 1 succeeds, 1 gets error
+- [ ] OpenAPI spec at `/docs` shows all endpoints
+- [ ] No mid-demo bugs, smooth operation
 
-***
+---
 
-# Editing this README
+## Key Technical Decisions
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### Race Condition Prevention
+**Problem:** Two customers buy the last unit simultaneously
 
-## Suggestions for a good README
+**Solution:** Atomic SQL UPDATE with stock check
+```sql
+UPDATE products SET stock = stock - :qty 
+WHERE id = :product_id AND stock >= :qty
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+If rowcount == 0 → 400 "Out of Stock"  
+If rowcount == 1 → order succeeds
 
-## Name
-Choose a self-explaining name for your project.
+### Parallel Development Strategy
+- **Shared API Contracts** — All teams follow `api-contracts/openapi-spec.yaml`
+- **Shared Database Schema** — All teams use `database/schema.sql`
+- **Shared ORM Models** — Import from `backend/shared/models.py`
+- **Mock-First Approach** — Frontend develops with hardcoded data while backend implements
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+---
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## Testing
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+```bash
+# Unit tests per UC
+pytest backend/uc1-browse-order/tests/
+pytest backend/uc2-promotions/tests/
+pytest backend/uc3-inventory/tests/
+pytest backend/uc4-order-tracking/tests/
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+# Integration tests (cross-UC flows)
+pytest tests/integration/
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+# Race condition test
+pytest tests/integration/test_race_condition.py
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+---
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## Documentation
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+- **[CLAUDE.md](CLAUDE.md)** — Team roles, tech stack, UC overview
+- **[PARALLEL_DEVELOPMENT.md](PARALLEL_DEVELOPMENT.md)** — How 4 teams work independently with shared contracts
+- **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** — How UC integrations work together
+- **[TECH_STACK.md](TECH_STACK.md)** — Detailed tech decisions, 4-hour timeline, demo checklist
+- **[api-contracts/openapi-spec.yaml](api-contracts/openapi-spec.yaml)** — Complete API specification
+- **[backend/uc*/README.md](backend/)** — Each UC's specific deliverables
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+---
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+## Troubleshooting
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+**Database Connection Failed:**
+```bash
+psql -U postgres -d vibestrike < database/schema.sql
+```
 
-## License
-For open source projects, say how it is licensed.
+**Stock Not Decrementing on Order:**
+- Check `backend/uc1-browse-order/services/order_service.py` includes atomic UPDATE
+- Verify WHERE clause: `WHERE id = :id AND stock >= :qty`
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+**Coupon Validation Returns 400:**
+- Check coupons exist: `SELECT * FROM coupons;`
+- Verify expiry date hasn't passed
+
+**CORS Errors:**
+- Check `backend/config.py` includes frontend URL in CORS_ORIGINS
+
+---
+
+Powered by **Claude Code** 🚀

@@ -1,5 +1,7 @@
 # Vibe Strike: Order & Inventory Engine
 
+**⚠️ New to the project? Start with [START_HERE.md](START_HERE.md) for a complete onboarding guide.**
+
 ## Project Overview
 Build a real-time e-commerce backend for order and inventory management with customer storefront and ops dashboard in 4 hours.
 
