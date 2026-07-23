@@ -1,0 +1,754 @@
+openapi: 3.0.0
+info:
+  title: Vibe Strike E-Commerce API
+  description: Order & Inventory Engine for mid-size retailer
+  version: 1.0.0
+  contact:
+    name: Team Vibe Strike
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.vibestrike.com
+    description: Production
+
+# ==================== UC1: Browse Products & Place Order ====================
+paths:
+  /products:
+    get:
+      tags:
+        - UC1-Products
+      summary: List all products
+      description: Returns all available products with current stock levels
+      operationId: listProducts
+      parameters:
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: List of products
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductList'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/{product_id}:
+    get:
+      tags:
+        - UC1-Products
+      summary: Get product details
+      description: Returns full details of a single product
+      operationId: getProduct
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders:
+    post:
+      tags:
+        - UC1-Orders
+      summary: Place a new order
+      description: |
+        Creates a new order with items.
+        **CRITICAL:** Uses atomic stock check to prevent overselling.
+        If stock unavailable (race condition), returns 400 or 409.
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Out of stock for one or more items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Out of stock"
+                details: "Product 5 has only 2 units, requested 3"
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Race condition - stock became unavailable during transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+# ==================== UC2: Promotions & Coupons ====================
+  /coupons/validate:
+    post:
+      tags:
+        - UC2-Promotions
+      summary: Validate a coupon code
+      description: |
+        Checks if coupon code is valid, not expired, and within usage limits.
+        Returns discount details if valid.
+      operationId: validateCoupon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateCouponRequest'
+      responses:
+        '200':
+          description: Coupon is valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidCoupon'
+        '400':
+          description: Coupon invalid, expired, or usage limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Invalid coupon"
+                details: "Coupon expired on 2026-07-01"
+
+  /promotions:
+    get:
+      tags:
+        - UC2-Promotions
+      summary: List active promotions
+      description: Returns all currently active promotional coupons
+      operationId: listPromotions
+      responses:
+        '200':
+          description: List of active promotions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromotionList'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+# ==================== UC3: Inventory Management ====================
+  /inventory:
+    get:
+      tags:
+        - UC3-Inventory
+      summary: Get all inventory levels
+      description: |
+        Returns current stock levels for all products.
+        **Access:** Ops manager only (may require auth).
+      operationId: getInventory
+      responses:
+        '200':
+          description: List of inventory levels
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /inventory/low-stock:
+    get:
+      tags:
+        - UC3-Inventory
+      summary: Get low-stock alerts
+      description: |
+        Returns list of products with stock below low_stock_threshold.
+        **Access:** Ops manager only.
+      operationId: getLowStockAlerts
+      responses:
+        '200':
+          description: List of low-stock products
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LowStockAlertList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /inventory/{product_id}:
+    patch:
+      tags:
+        - UC3-Inventory
+      summary: Restock a product
+      description: |
+        Add inventory to a product.
+        **Access:** Ops manager only.
+      operationId: restockProduct
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestockRequest'
+      responses:
+        '200':
+          description: Product restocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error (qty must be positive)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+# ==================== UC4: Order Tracking ====================
+  /orders/{order_id}:
+    get:
+      tags:
+        - UC4-Tracking
+      summary: Get order status
+      description: |
+        Retrieve current status and details of an order.
+        Shows: items, total, discount applied, current status (pending/shipped/delivered).
+      operationId: getOrder
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{order_id}/status:
+    patch:
+      tags:
+        - UC4-Tracking
+      summary: Update order status
+      description: |
+        Update order status (e.g., pending → shipped → delivered).
+        **Access:** Ops manager only.
+      operationId: updateOrderStatus
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderStatusRequest'
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /customers/{customer_id}/orders:
+    get:
+      tags:
+        - UC4-Tracking
+      summary: Get customer's order history
+      description: Returns all orders placed by a customer
+      operationId: getCustomerOrders
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of customer's orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderList'
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+# ==================== Components (Schemas) ====================
+components:
+  schemas:
+    # ---- Products ----
+    Product:
+      type: object
+      required:
+        - id
+        - name
+        - price
+        - stock
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Widget A"
+        description:
+          type: string
+          example: "High-quality widget with advanced features"
+        price:
+          type: number
+          format: decimal
+          example: 29.99
+        stock:
+          type: integer
+          example: 5
+        low_stock_threshold:
+          type: integer
+          example: 10
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-07-23T10:00:00Z"
+
+    ProductList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        total:
+          type: integer
+          example: 25
+
+    # ---- Orders ----
+    CreateOrderRequest:
+      type: object
+      required:
+        - customer_id
+        - items
+      properties:
+        customer_id:
+          type: integer
+          example: 1
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - product_id
+              - quantity
+            properties:
+              product_id:
+                type: integer
+                example: 1
+              quantity:
+                type: integer
+                minimum: 1
+                example: 2
+        coupon_code:
+          type: string
+          nullable: true
+          example: "SUMMER10"
+
+    OrderItem:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          example: 1
+        product_name:
+          type: string
+          example: "Widget A"
+        quantity:
+          type: integer
+          example: 2
+        price:
+          type: number
+          format: decimal
+          example: 29.99
+        subtotal:
+          type: number
+          format: decimal
+          example: 59.98
+
+    Order:
+      type: object
+      required:
+        - id
+        - customer_id
+        - status
+        - items
+        - total
+      properties:
+        id:
+          type: integer
+          example: 123
+        customer_id:
+          type: integer
+          example: 1
+        status:
+          type: string
+          enum:
+            - pending
+            - confirmed
+            - shipped
+            - delivered
+          example: "pending"
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        subtotal:
+          type: number
+          format: decimal
+          example: 59.98
+        coupon_code:
+          type: string
+          nullable: true
+          example: "SUMMER10"
+        discount_amount:
+          type: number
+          format: decimal
+          example: 6.00
+        total:
+          type: number
+          format: decimal
+          example: 53.98
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-07-23T10:05:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-07-23T10:05:00Z"
+
+    OrderList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        total:
+          type: integer
+          example: 5
+
+    # ---- Coupons & Promotions ----
+    ValidateCouponRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          example: "SUMMER10"
+
+    ValidCoupon:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "SUMMER10"
+        valid:
+          type: boolean
+          example: true
+        discount_type:
+          type: string
+          enum:
+            - percent
+            - fixed
+          example: "percent"
+        value:
+          type: number
+          format: decimal
+          example: 10
+        expires_at:
+          type: string
+          format: date-time
+          example: "2026-12-31T23:59:59Z"
+        remaining_uses:
+          type: integer
+          example: 50
+
+    Promotion:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        code:
+          type: string
+          example: "SUMMER10"
+        description:
+          type: string
+          example: "Summer Sale: 10% off all orders"
+        discount_type:
+          type: string
+          enum:
+            - percent
+            - fixed
+          example: "percent"
+        value:
+          type: number
+          format: decimal
+          example: 10
+        expires_at:
+          type: string
+          format: date-time
+          example: "2026-12-31T23:59:59Z"
+        remaining_uses:
+          type: integer
+          example: 50
+
+    PromotionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Promotion'
+        total:
+          type: integer
+          example: 3
+
+    # ---- Inventory ----
+    Inventory:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          example: 1
+        product_name:
+          type: string
+          example: "Widget A"
+        stock:
+          type: integer
+          example: 25
+        low_stock_threshold:
+          type: integer
+          example: 10
+        price:
+          type: number
+          format: decimal
+          example: 29.99
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-07-23T10:05:00Z"
+
+    InventoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Inventory'
+        total:
+          type: integer
+          example: 15
+
+    LowStockAlert:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          example: 2
+        product_name:
+          type: string
+          example: "Widget B"
+        current_stock:
+          type: integer
+          example: 3
+        low_stock_threshold:
+          type: integer
+          example: 10
+        urgency:
+          type: string
+          enum:
+            - critical
+            - warning
+          example: "critical"
+
+    LowStockAlertList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LowStockAlert'
+        total:
+          type: integer
+          example: 2
+
+    RestockRequest:
+      type: object
+      required:
+        - quantity
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          example: 50
+
+    # ---- Status Updates ----
+    UpdateOrderStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+            - confirmed
+            - shipped
+            - delivered
+          example: "shipped"
+
+    # ---- Error Response ----
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: "Out of stock"
+        details:
+          type: string
+          nullable: true
+          example: "Product 5 has only 2 units, requested 3"
+        code:
+          type: string
+          nullable: true
+          example: "OUT_OF_STOCK"
+
