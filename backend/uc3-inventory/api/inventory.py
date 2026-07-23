@@ -15,6 +15,8 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 from shared.db import get_db
+from shared.models import User
+from shared.auth import get_current_user
 from uc3_inventory.services.inventory_service import (
     InventoryService,
     OutOfStockException,
@@ -22,6 +24,18 @@ from uc3_inventory.services.inventory_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ===================== Auth Dependencies =====================
+def require_ops_manager(user: User = Depends(get_current_user)):
+    """Ensure only ops managers can access inventory endpoints"""
+    if not user or user.user_type != 'ops_manager':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ops manager access required"
+        )
+    return user
+
 
 # ===================== Pydantic Schemas =====================
 
@@ -90,9 +104,12 @@ router = APIRouter()
     response_model=InventoryListResponse,
     tags=["UC3-Inventory"],
     summary="Get all inventory levels",
-    description="Returns current stock levels for all products. Ops access only."
+    description="Returns current stock levels for all products. Ops manager access only."
 )
-async def get_inventory(db: Session = Depends(get_db)):
+async def get_inventory(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_ops_manager),
+):
     """
     Retrieve all product inventory levels.
 
@@ -135,9 +152,12 @@ async def get_inventory(db: Session = Depends(get_db)):
     response_model=LowStockAlertListResponse,
     tags=["UC3-Inventory"],
     summary="Get low-stock alerts",
-    description="Returns products below low_stock_threshold, sorted by urgency. Ops access only."
+    description="Returns products below low_stock_threshold, sorted by urgency. Ops manager access only."
 )
-async def get_low_stock_alerts(db: Session = Depends(get_db)):
+async def get_low_stock_alerts(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_ops_manager),
+):
     """
     Retrieve low-stock alerts (products below threshold).
 
@@ -184,12 +204,13 @@ async def get_low_stock_alerts(db: Session = Depends(get_db)):
     response_model=InventoryResponse,
     tags=["UC3-Inventory"],
     summary="Restock a product",
-    description="Add inventory to a product. Ops access only."
+    description="Add inventory to a product. Ops manager access only."
 )
 async def restock_product(
     product_id: int,
     request: RestockRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(require_ops_manager),
 ):
     """
     Restock a product by adding inventory.

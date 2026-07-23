@@ -47,18 +47,21 @@ async def startup():
     logger.info("Initializing database...")
     init_db()
 
-    # Seed test data if needed
-    from shared.migrations import seed_users, seed_customers, seed_products, seed_coupons
+    # Seed data if tables are empty
     from shared.db import SessionLocal
-
-    db = SessionLocal()
+    from shared.models import User
+    session = SessionLocal()
     try:
-        seed_users(db)
-        seed_customers(db)
-        seed_products(db)
-        seed_coupons(db)
+        user_count = session.query(User).count()
+        if user_count == 0:
+            logger.info("Seeding initial data...")
+            from shared.migrations import seed_users, seed_products, seed_customers, seed_coupons
+            seed_users(session)
+            seed_products(session)
+            seed_customers(session)
+            seed_coupons(session)
     finally:
-        db.close()
+        session.close()
 
     logger.info("✅ Database ready")
 

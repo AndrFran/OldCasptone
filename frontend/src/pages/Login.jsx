@@ -49,7 +49,7 @@ function Login({ onLoginSuccess }) {
       localStorage.setItem('token', access_token)
       localStorage.setItem('user_type', user_type)
       localStorage.setItem('user_id', user_id)
-      localStorage.setItem('email', userEmail)
+      localStorage.setItem('user_email', userEmail)
 
       if (onLoginSuccess) onLoginSuccess(user_type)
 
