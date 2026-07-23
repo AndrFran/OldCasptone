@@ -35,6 +35,131 @@ function getStatusIcon(status) {
 // ============================= COMPONENTS =============================
 
 /**
+ * ProductTableRow Component
+ * Displays a single product row in the inventory table
+ */
+function ProductTableRow({ product, status, colors, onQuantityUpdated }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [newQty, setNewQty] = useState(product.stock)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const handleSave = useCallback(async () => {
+    if (newQty === product.stock) {
+      setIsEditing(false)
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    const token = localStorage.getItem('token')
+    const headers = { Authorization: `Bearer ${token}` }
+
+    try {
+      const response = await axios.put(
+        `http://localhost:8000/inventory/${product.id}/quantity`,
+        { new_quantity: newQty, operation_type: 'set' },
+        { headers }
+      )
+      onQuantityUpdated(response.data)
+      setIsEditing(false)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to update')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [newQty, product, onQuantityUpdated])
+
+  return (
+    <tr className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+      <td className="px-6 py-4">
+        <div>
+          <p className="text-sm font-medium text-gray-900">{product.name}</p>
+          {(product.color || product.silhouette) && (
+            <p className="text-xs text-gray-500 mt-1">
+              {product.color && `${product.color}`}
+              {product.color && product.silhouette && ' • '}
+              {product.silhouette && `${product.silhouette}`}
+            </p>
+          )}
+        </div>
+      </td>
+      <td className="px-6 py-4 text-sm text-gray-600">{product.brand || product.team || '—'}</td>
+      <td className="px-6 py-4 text-center">
+        {!isEditing ? (
+          <span className="text-sm font-semibold text-gray-900">{product.stock}</span>
+        ) : (
+          <div className="flex gap-1 items-center justify-center">
+            <button
+              onClick={() => setNewQty(Math.max(0, newQty - 1))}
+              disabled={isLoading}
+              className="bg-gray-200 text-gray-800 px-2 py-1 rounded text-xs font-bold hover:bg-gray-300 disabled:opacity-50"
+            >
+              −
+            </button>
+            <input
+              type="number"
+              min="0"
+              max="9999"
+              value={newQty}
+              onChange={(e) => setNewQty(Math.max(0, parseInt(e.target.value) || 0))}
+              disabled={isLoading}
+              className="w-12 text-center border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            />
+            <button
+              onClick={() => setNewQty(Math.min(9999, newQty + 1))}
+              disabled={isLoading}
+              className="bg-gray-200 text-gray-800 px-2 py-1 rounded text-xs font-bold hover:bg-gray-300 disabled:opacity-50"
+            >
+              +
+            </button>
+          </div>
+        )}
+      </td>
+      <td className="px-6 py-4 text-center text-sm text-gray-600">{product.low_stock_threshold}</td>
+      <td className="px-6 py-4 text-center">
+        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text}`}>
+          {getStatusIcon(status)} {status.toUpperCase()}
+        </span>
+      </td>
+      <td className="px-6 py-4 text-right">
+        {!isEditing ? (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Edit
+          </button>
+        ) : (
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={handleSave}
+              disabled={isLoading || newQty === product.stock}
+              className="text-sm font-medium text-green-600 hover:text-green-800 disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => {
+                setIsEditing(false)
+                setNewQty(product.stock)
+                setError(null)
+              }}
+              disabled={isLoading}
+              className="text-sm font-medium text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+        {error && <p className="text-red-600 text-xs mt-1">{error}</p>}
+      </td>
+    </tr>
+  )
+}
+
+/**
  * ProductCard Component
  * Displays a single product with stock visualization and quantity editor
  */
@@ -663,88 +788,180 @@ function InventoryDashboard() {
           />
         )}
 
-        {/* Control Bar: Search, Filters, Sort */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6 sticky top-20 z-30">
-          <div className="flex flex-col gap-4">
-            {/* Search Bar */}
-            <SearchInput value={search} onChange={setSearch} isLoading={loading} />
+        {/* Layout: Sidebar + Main Content */}
+        <div className="flex gap-6">
+          {/* Sidebar Filters */}
+          <div className="w-64 flex-shrink-0">
+            <div className="bg-white rounded-lg shadow-md p-4 sticky top-20 space-y-6">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase">Filters</h3>
 
-            {/* Filter Chips and Status Dropdown */}
-            <div className="flex flex-wrap gap-2 items-center">
-              {availableFilters && (
-                <>
-                  <FilterChip
-                    label="Brand"
-                    count={brands.length}
-                    options={availableFilters.brands}
-                    selected={brands}
-                    onChange={setBrands}
-                    isLoading={loading}
+                {/* Search */}
+                <div className="mb-6">
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Product name..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    disabled={loading}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   />
-                  <FilterChip
-                    label="Team"
-                    count={teams.length}
-                    options={availableFilters.teams}
-                    selected={teams}
-                    onChange={setTeams}
-                    isLoading={loading}
-                  />
-                  <FilterChip
-                    label="Color"
-                    count={colors.length}
-                    options={availableFilters.colors}
-                    selected={colors}
-                    onChange={setColors}
-                    isLoading={loading}
-                  />
-                  <FilterChip
-                    label="Silhouette"
-                    count={silhouettes.length}
-                    options={availableFilters.silhouettes}
-                    selected={silhouettes}
-                    onChange={setSilhouettes}
-                    isLoading={loading}
-                  />
-                </>
-              )}
+                </div>
 
-              {/* Status Filter Select */}
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                disabled={loading}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                <option value="all">All Status</option>
-                <option value="critical">Critical Only</option>
-                <option value="warning">Warning Only</option>
-                <option value="ok">In Stock</option>
-              </select>
+                {/* Status Filter */}
+                <div className="mb-6">
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">Stock Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    disabled={loading}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="critical">🔴 Critical</option>
+                    <option value="warning">🟡 Warning</option>
+                    <option value="ok">🟢 In Stock</option>
+                  </select>
+                </div>
 
-              {/* Clear All Button */}
-              {hasActiveFilters && (
-                <button
-                  onClick={handleClearFilters}
-                  className="px-3 py-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
-                  title="Clear all filters and search"
-                >
-                  ✕ Clear All
-                </button>
-              )}
+                {/* Brand Filter */}
+                {availableFilters && availableFilters.brands?.length > 0 && (
+                  <div className="mb-6">
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">Brand ({brands.length})</label>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {availableFilters.brands.map(brand => (
+                        <label key={brand.name} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={brands.includes(brand.name)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setBrands([...brands, brand.name])
+                              } else {
+                                setBrands(brands.filter(b => b !== brand.name))
+                              }
+                            }}
+                            disabled={loading}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-gray-700">{brand.name}</span>
+                          <span className="text-xs text-gray-500">({brand.count})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Team Filter */}
+                {availableFilters && availableFilters.teams?.length > 0 && (
+                  <div className="mb-6">
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">Team ({teams.length})</label>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {availableFilters.teams.map(team => (
+                        <label key={team.name} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={teams.includes(team.name)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setTeams([...teams, team.name])
+                              } else {
+                                setTeams(teams.filter(t => t !== team.name))
+                              }
+                            }}
+                            disabled={loading}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-gray-700">{team.name}</span>
+                          <span className="text-xs text-gray-500">({team.count})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Color Filter */}
+                {availableFilters && availableFilters.colors?.length > 0 && (
+                  <div className="mb-6">
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">Color ({colors.length})</label>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {availableFilters.colors.map(color => (
+                        <label key={color.name} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={colors.includes(color.name)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setColors([...colors, color.name])
+                              } else {
+                                setColors(colors.filter(c => c !== color.name))
+                              }
+                            }}
+                            disabled={loading}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-gray-700">{color.name}</span>
+                          <span className="text-xs text-gray-500">({color.count})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Silhouette Filter */}
+                {availableFilters && availableFilters.silhouettes?.length > 0 && (
+                  <div className="mb-6">
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">Silhouette ({silhouettes.length})</label>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {availableFilters.silhouettes.map(sil => (
+                        <label key={sil.name} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={silhouettes.includes(sil.name)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSilhouettes([...silhouettes, sil.name])
+                              } else {
+                                setSilhouettes(silhouettes.filter(s => s !== sil.name))
+                              }
+                            }}
+                            disabled={loading}
+                            className="rounded"
+                          />
+                          <span className="text-sm text-gray-700">{sil.name}</span>
+                          <span className="text-xs text-gray-500">({sil.count})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Clear Filters */}
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleClearFilters}
+                    className="w-full px-3 py-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                  >
+                    ✕ Clear All Filters
+                  </button>
+                )}
+              </div>
             </div>
+          </div>
 
-            {/* Sort Dropdown and Results Count */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+          {/* Main Content */}
+          <div className="flex-1">
+            {/* Top Bar: Search and Sort */}
+            <div className="bg-white rounded-lg shadow-md p-4 mb-6 flex items-center justify-between gap-4">
               <div className="text-sm text-gray-700 font-medium">
                 <span className="font-bold">{products.length}</span> of <span className="font-bold">{totalCount}</span> products
               </div>
               <div className="flex items-center gap-2">
-                <label htmlFor="sort" className="text-sm font-medium text-gray-700 hidden sm:block">Sort by:</label>
+                <label className="text-sm font-medium text-gray-700">Sort by:</label>
                 <SortDropdown value={sortBy} onChange={setSortBy} isLoading={loading} />
               </div>
             </div>
-          </div>
-        </div>
 
         {/* Product Grid */}
         {products.length === 0 ? (
@@ -763,10 +980,18 @@ function InventoryDashboard() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 mb-8 auto-rows-max">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} onQuantityUpdated={handleQuantityUpdated} />
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+              {products.map((product) => {
+                const status = getStockStatus(product.stock, product.low_stock_threshold)
+                const colors = getStatusColor(status)
+                return (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onQuantityUpdated={handleQuantityUpdated}
+                  />
+                )
+              })}
             </div>
 
             {/* Pagination Controls */}
@@ -831,6 +1056,8 @@ function InventoryDashboard() {
             </div>
           </>
         )}
+          </div>
+        </div>
       </div>
     </div>
   )
