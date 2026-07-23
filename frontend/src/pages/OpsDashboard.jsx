@@ -107,7 +107,7 @@ function OpsDashboard() {
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
-            📦 Inventory (UC3)
+            📦 Inventory
           </button>
           <button
             onClick={() => setActiveTab('orders')}
@@ -117,7 +117,7 @@ function OpsDashboard() {
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
-            📋 Orders (UC4)
+            📋 Orders
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
@@ -188,11 +188,11 @@ function OpsDashboard() {
           </div>
         )}
 
-        {/* TAB 2: ORDERS (UC4) */}
+        {/* TAB 2: ORDERS */}
         {activeTab === 'orders' && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">📋 Order Management (UC4)</h2>
+              <h2 className="text-2xl font-bold">📋 Order Management</h2>
               <button
                 onClick={fetchData}
                 className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
