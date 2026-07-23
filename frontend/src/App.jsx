@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Header from './components/Header'
 import OpsDashboardHeader from './components/OpsDashboardHeader'
 import Footer from './components/Footer'
+import CookieConsentBanner from './components/CookieConsentBanner'
 import Login from './pages/Login'
 import OpsDashboard from './pages/OpsDashboard'
 import InventoryDashboard from './pages/InventoryDashboard'
@@ -13,6 +14,11 @@ import Checkout from './pages/Checkout'
 import OrderConfirmation from './pages/OrderConfirmation'
 import OrderTracking from './pages/OrderTracking'
 import UserProfile from './pages/UserProfile'
+import { PrivacyPolicy } from './pages/PrivacyPolicy'
+import { TermsOfService } from './pages/TermsOfService'
+import { CookiePolicy } from './pages/CookiePolicy'
+import { DataRights } from './pages/DataRights'
+import { ContactUs } from './pages/ContactUs'
 
 function App() {
   const [cart, setCart] = useState([])
@@ -103,11 +109,21 @@ function App() {
             />
             <Route path="/order-tracking" element={<OrderTracking />} />
             <Route path="/user" element={<UserProfile />} />
+
+            {/* GDPR & Compliance Pages */}
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
+            <Route path="/cookie-policy" element={<CookiePolicy />} />
+            <Route path="/data-rights" element={<DataRights />} />
+            <Route path="/contact" element={<ContactUs />} />
           </Routes>
         </main>
 
         {/* Footer Only for Customers */}
         {userType !== 'ops_manager' && <Footer />}
+
+        {/* Cookie Consent Banner - Show on all pages */}
+        {userType !== 'ops_manager' && <CookieConsentBanner />}
       </div>
     </Router>
   )

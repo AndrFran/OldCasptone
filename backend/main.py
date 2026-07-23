@@ -112,6 +112,13 @@ try:
 except Exception as e:
     logger.info(f"UC3 Inventory router not available (tried underscore): {e}")
 
+try:
+    from api.gdpr import router as gdpr_router
+    app.include_router(gdpr_router, tags=["GDPR"])
+    logger.info("Loaded GDPR router")
+except Exception as e:
+    logger.info(f"GDPR router not available: {e}")
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -84,24 +84,12 @@ function OpsDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Ops Dashboard</h1>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-
       {/* Tab Navigation */}
-      <div className="bg-white border-b sticky top-16 z-40">
-        <div className="max-w-7xl mx-auto px-4 flex gap-8">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-8">
           <button
             onClick={() => setActiveTab('inventory')}
-            className={`py-4 px-2 border-b-2 font-medium transition ${
+            className={`py-4 px-2 border-b-2 font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               activeTab === 'inventory'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -111,7 +99,7 @@ function OpsDashboard() {
           </button>
           <button
             onClick={() => setActiveTab('orders')}
-            className={`py-4 px-2 border-b-2 font-medium transition ${
+            className={`py-4 px-2 border-b-2 font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               activeTab === 'orders'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -121,7 +109,7 @@ function OpsDashboard() {
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`py-4 px-2 border-b-2 font-medium transition ${
+            className={`py-4 px-2 border-b-2 font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               activeTab === 'analytics'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -132,7 +120,7 @@ function OpsDashboard() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* TAB 1: INVENTORY */}
         {activeTab === 'inventory' && (
           <div className="bg-white rounded-lg shadow-md p-6">
@@ -155,27 +143,27 @@ function OpsDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="text-left py-3 px-4 font-semibold">Product</th>
-                      <th className="text-left py-3 px-4 font-semibold">Stock</th>
-                      <th className="text-left py-3 px-4 font-semibold">Threshold</th>
-                      <th className="text-left py-3 px-4 font-semibold">Status</th>
+                    <tr className="border-b border-gray-200 bg-gray-100">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 border-b border-gray-200">Product</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 border-b border-gray-200">Stock</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 border-b border-gray-200">Threshold</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 border-b border-gray-200">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {displayInventory.map(item => (
-                      <tr key={item.id} className="border-b hover:bg-gray-50">
+                      <tr key={item.id} className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="py-3 px-4">{item.name}</td>
                         <td className="py-3 px-4 font-medium">{item.stock}</td>
                         <td className="py-3 px-4">{item.low_stock_threshold}</td>
                         <td className="py-3 px-4">
                           {item.stock < item.low_stock_threshold ? (
-                            <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-                              Low Stock ⚠️
+                            <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">
+                              Critical
                             </span>
                           ) : (
-                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                              In Stock ✓
+                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                              OK
                             </span>
                           )}
                         </td>
@@ -195,22 +183,22 @@ function OpsDashboard() {
               <h2 className="text-2xl font-bold">📋 Order Management</h2>
               <button
                 onClick={fetchData}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium transition-colors duration-200"
               >
                 🔄 Refresh
               </button>
             </div>
 
             {/* Filter Buttons */}
-            <div className="flex gap-2 mb-6">
+            <div className="flex flex-wrap gap-2 mb-6">
               {['all', 'pending', 'confirmed', 'shipped', 'delivered'].map(status => (
                 <button
                   key={status}
                   onClick={() => setOrderFilter(status)}
-                  className={`px-4 py-2 rounded font-medium transition ${
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
                     orderFilter === status
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
                   {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
@@ -225,17 +213,17 @@ function OpsDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="text-left py-3 px-4 font-semibold">Order ID</th>
-                      <th className="text-left py-3 px-4 font-semibold">Customer</th>
-                      <th className="text-right py-3 px-4 font-semibold">Total</th>
-                      <th className="text-left py-3 px-4 font-semibold">Status</th>
-                      <th className="text-left py-3 px-4 font-semibold">Actions</th>
+                    <tr className="border-b border-gray-200 bg-gray-100">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 border-b border-gray-200">Order ID</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 border-b border-gray-200">Customer</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-900 border-b border-gray-200">Total</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 border-b border-gray-200">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 border-b border-gray-200">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredOrders.map(order => (
-                      <tr key={order.id} className="border-b hover:bg-gray-50">
+                      <tr key={order.id} className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="py-3 px-4 font-medium">#{order.id}</td>
                         <td className="py-3 px-4">{order.customer_email || 'N/A'}</td>
                         <td className="py-3 px-4 text-right font-semibold">${parseFloat(order.total || 0).toFixed(2)}</td>
@@ -243,11 +231,11 @@ function OpsDashboard() {
                           <select
                             value={order.status || 'pending'}
                             onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                            className={`border rounded px-3 py-1 text-sm font-medium ${
-                              order.status === 'pending' ? 'bg-yellow-50 border-yellow-300 text-yellow-800' :
-                              order.status === 'confirmed' ? 'bg-blue-50 border-blue-300 text-blue-800' :
-                              order.status === 'shipped' ? 'bg-purple-50 border-purple-300 text-purple-800' :
-                              'bg-green-50 border-green-300 text-green-800'
+                            className={`border rounded px-3 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              order.status === 'pending' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
+                              order.status === 'confirmed' ? 'bg-blue-50 border-blue-200 text-blue-800' :
+                              order.status === 'shipped' ? 'bg-purple-50 border-purple-200 text-purple-800' :
+                              'bg-green-50 border-green-200 text-green-800'
                             }`}
                           >
                             <option value="pending">🟡 Pending</option>
@@ -257,7 +245,7 @@ function OpsDashboard() {
                           </select>
                         </td>
                         <td className="py-3 px-4">
-                          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors duration-200">
                             View
                           </button>
                         </td>
@@ -277,45 +265,45 @@ function OpsDashboard() {
             <h2 className="text-2xl font-bold mb-6">📊 Order Analytics</h2>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-5 gap-4 mb-8">
-              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-gray-400">
-                <p className="text-gray-600 text-sm font-medium">Total Orders</p>
-                <p className="text-3xl font-bold mt-2">{orderStats.total}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-gray-500">
+                <p className="text-gray-600 text-sm font-semibold">Total Orders</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{orderStats.total}</p>
               </div>
               <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-400">
-                <p className="text-gray-600 text-sm font-medium">🟡 Pending</p>
+                <p className="text-gray-600 text-sm font-semibold">Pending</p>
                 <p className="text-3xl font-bold text-yellow-600 mt-2">{orderStats.pending}</p>
               </div>
-              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-400">
-                <p className="text-gray-600 text-sm font-medium">🔵 Confirmed</p>
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-600">
+                <p className="text-gray-600 text-sm font-semibold">Confirmed</p>
                 <p className="text-3xl font-bold text-blue-600 mt-2">{orderStats.confirmed}</p>
               </div>
-              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-400">
-                <p className="text-gray-600 text-sm font-medium">🟣 Shipped</p>
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-600">
+                <p className="text-gray-600 text-sm font-semibold">Shipped</p>
                 <p className="text-3xl font-bold text-purple-600 mt-2">{orderStats.shipped}</p>
               </div>
-              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-400">
-                <p className="text-gray-600 text-sm font-medium">🟢 Delivered</p>
+              <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-600">
+                <p className="text-gray-600 text-sm font-semibold">Delivered</p>
                 <p className="text-3xl font-bold text-green-600 mt-2">{orderStats.delivered}</p>
               </div>
             </div>
 
             {/* Status Breakdown */}
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-bold mb-4">Order Status Breakdown</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Order Status Breakdown</h3>
               <div className="space-y-3">
                 {[
                   { status: 'Pending', count: orderStats.pending, color: 'bg-yellow-500', percent: orderStats.total ? ((orderStats.pending / orderStats.total) * 100).toFixed(0) : 0 },
-                  { status: 'Confirmed', count: orderStats.confirmed, color: 'bg-blue-500', percent: orderStats.total ? ((orderStats.confirmed / orderStats.total) * 100).toFixed(0) : 0 },
-                  { status: 'Shipped', count: orderStats.shipped, color: 'bg-purple-500', percent: orderStats.total ? ((orderStats.shipped / orderStats.total) * 100).toFixed(0) : 0 },
-                  { status: 'Delivered', count: orderStats.delivered, color: 'bg-green-500', percent: orderStats.total ? ((orderStats.delivered / orderStats.total) * 100).toFixed(0) : 0 }
+                  { status: 'Confirmed', count: orderStats.confirmed, color: 'bg-blue-600', percent: orderStats.total ? ((orderStats.confirmed / orderStats.total) * 100).toFixed(0) : 0 },
+                  { status: 'Shipped', count: orderStats.shipped, color: 'bg-purple-600', percent: orderStats.total ? ((orderStats.shipped / orderStats.total) * 100).toFixed(0) : 0 },
+                  { status: 'Delivered', count: orderStats.delivered, color: 'bg-green-600', percent: orderStats.total ? ((orderStats.delivered / orderStats.total) * 100).toFixed(0) : 0 }
                 ].map(stat => (
                   <div key={stat.status}>
                     <div className="flex justify-between mb-1">
                       <span className="font-medium">{stat.status}</span>
                       <span className="text-sm text-gray-600">{stat.count} orders ({stat.percent}%)</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-gray-100 rounded-full h-2">
                       <div className={`${stat.color} h-2 rounded-full`} style={{ width: `${stat.percent}%` }}></div>
                     </div>
                   </div>
