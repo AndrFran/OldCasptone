@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$(git rev-parse --show-toplevel 2>/dev/null)\" && python .claude/check_secrets.py 2>&1 | head -50",
+            "statusMessage": "Scanning staged files for hardcoded secrets...",
+            "if": "Bash(git commit*)"
+          }
+        ]
+      }
+    ]
+  }
+}
