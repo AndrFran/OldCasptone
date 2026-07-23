@@ -132,12 +132,12 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
                 <span className="text-2xl text-blue-600">${total.toFixed(2)}</span>
               </div>
 
-              <button
-                disabled
-                className="w-full py-3 px-4 rounded-lg font-medium text-gray-400 bg-gray-200 cursor-not-allowed mt-6"
+              <Link
+                to="/checkout"
+                className="w-full btn btn-primary text-center block py-3"
               >
-                Checkout (Coming Soon)
-              </button>
+                Proceed to Checkout
+              </Link>
 
               <Link
                 to="/"
@@ -145,10 +145,6 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
               >
                 Continue Shopping
               </Link>
-
-              <p className="text-xs text-gray-500 text-center mt-4">
-                Order placement coming soon. Keep shopping!
-              </p>
             </div>
           </div>
         </div>
