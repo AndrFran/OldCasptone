@@ -1,7 +1,9 @@
-import React, { useState } from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Header from './components/Header'
 import Footer from './components/Footer'
+import Login from './pages/Login'
+import OpsDashboard from './pages/OpsDashboard'
 import ProductList from './pages/ProductList'
 import ProductDetail from './pages/ProductDetail'
 import Cart from './pages/Cart'
@@ -11,6 +13,12 @@ import OrderTracking from './pages/OrderTracking'
 
 function App() {
   const [cart, setCart] = useState([])
+  const [userType, setUserType] = useState(null)
+
+  useEffect(() => {
+    const savedUserType = localStorage.getItem('user_type')
+    if (savedUserType) setUserType(savedUserType)
+  }, [])
   const [lastOrderId, setLastOrderId] = useState(null)
 
   const addToCart = (product, quantity) => {
@@ -50,9 +58,11 @@ function App() {
   return (
     <Router>
       <div className="flex flex-col min-h-screen bg-gray-50">
-        <Header cartItemCount={cart.length} />
+        {userType !== 'ops_manager' && <Header cartItemCount={cart.length} />}
         <main className="flex-grow">
           <Routes>
+            <Route path="/login" element={<Login onLoginSuccess={setUserType} />} />
+            <Route path="/ops-dashboard" element={<OpsDashboard />} />
             <Route path="/" element={<ProductList onAddToCart={addToCart} />} />
             <Route path="/product/:id" element={<ProductDetail onAddToCart={addToCart} />} />
             <Route
@@ -84,7 +94,7 @@ function App() {
             <Route path="/order-tracking" element={<OrderTracking />} />
           </Routes>
         </main>
-        <Footer />
+        {userType !== 'ops_manager' && <Footer />}
       </div>
     </Router>
   )

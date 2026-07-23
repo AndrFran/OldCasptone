@@ -13,11 +13,22 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ===================== Users (Auth) =====================
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  user_type VARCHAR(50) NOT NULL,
+  -- user_type enum: 'customer' or 'ops_manager'
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ===================== Customers (UC1, UC4) =====================
 CREATE TABLE IF NOT EXISTS customers (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   name VARCHAR(255) NOT NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -92,12 +103,19 @@ VALUES
   ('Gadget Y', 'Advanced gadget for professionals', 99.99, 15, 10)
 ON CONFLICT DO NOTHING;
 
--- Insert sample customers
-INSERT INTO customers (email, name)
+-- Insert sample users with hashed passwords (all passwords: password123)
+INSERT INTO users (email, password_hash, user_type)
 VALUES
-  ('alice@example.com', 'Alice Johnson'),
-  ('bob@example.com', 'Bob Smith'),
-  ('charlie@example.com', 'Charlie Brown')
+  ('alice@example.com', '$2b$12$dcfUNStTsWxvnJssaW.zXOCfccfksR4hXFj70EyjfE1.BkWnf3JOi', 'customer'),
+  ('bob@example.com', '$2b$12$CRD87FXMMdkbou8WyPzNCulVhqdncRLOi.yz/SWAs44uPtkScGLDm', 'customer'),
+  ('ops1@example.com', '$2b$12$1lz7IWWeSB5/9Dv62F7tyea5bkhNeUxDeI3i7OI1pV682vyK0VDd.', 'ops_manager')
+ON CONFLICT DO NOTHING;
+
+-- Insert sample customers
+INSERT INTO customers (email, name, user_id)
+VALUES
+  ('alice@example.com', 'Alice Johnson', 1),
+  ('bob@example.com', 'Bob Smith', 2)
 ON CONFLICT DO NOTHING;
 
 -- Insert sample coupons
@@ -108,7 +126,14 @@ VALUES
   ('SAVE5', 'Save $5 on orders over $50', 'fixed', 5.00, '2026-12-31 23:59:59', NULL)
 ON CONFLICT DO NOTHING;
 
+-- ===================== Indexes for Auth =====================
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_user_type ON users(user_type);
+
 -- ===================== Constraints =====================
+
+-- Ensure user_type is valid
+ALTER TABLE users ADD CONSTRAINT check_user_type CHECK (user_type IN ('customer', 'ops_manager'));
 
 -- Ensure stock is never negative (UC1, UC3)
 ALTER TABLE products ADD CONSTRAINT check_stock_nonnegative CHECK (stock >= 0);
