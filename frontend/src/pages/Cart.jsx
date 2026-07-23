@@ -5,7 +5,10 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
   const navigate = useNavigate()
 
   const subtotal = items.reduce((sum, item) => {
-    return sum + (parseFloat(item.price) * item.quantity)
+    const salePrice = item.sale_price ? parseFloat(item.sale_price) : null
+    const regularPrice = parseFloat(item.price)
+    const price = salePrice && salePrice < regularPrice ? salePrice : regularPrice
+    return sum + (price * item.quantity)
   }, 0)
 
   const tax = subtotal * 0.08
@@ -66,9 +69,22 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
                   <h3 className="font-semibold text-lg text-gray-900 mb-2">
                     {item.name}
                   </h3>
-                  <p className="text-gray-600 text-sm mb-3">
-                    Price: ${parseFloat(item.price).toFixed(2)}
-                  </p>
+                  <div className="text-sm mb-3">
+                    {item.sale_price && parseFloat(item.sale_price) < parseFloat(item.price) ? (
+                      <>
+                        <p className="text-gray-600">
+                          Sale Price: <span className="font-semibold text-blue-600">${parseFloat(item.sale_price).toFixed(2)}</span>
+                        </p>
+                        <p className="text-gray-400 line-through">
+                          ${parseFloat(item.price).toFixed(2)}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-gray-600">
+                        Price: ${parseFloat(item.price).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center border border-gray-300 rounded-lg">
@@ -90,7 +106,7 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
                     </div>
 
                     <span className="text-lg font-bold text-gray-900">
-                      ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                      ${((item.sale_price && parseFloat(item.sale_price) < parseFloat(item.price) ? parseFloat(item.sale_price) : parseFloat(item.price)) * item.quantity).toFixed(2)}
                     </span>
 
                     <button
