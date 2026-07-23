@@ -25,15 +25,13 @@ function Header({ cartItemCount }) {
             <Link to="/" className="text-gray-700 hover:text-blue-600 font-medium">
               Shop
             </Link>
-            <Link to="/order-tracking" className="text-gray-700 hover:text-blue-600 font-medium">
-              Track Order
-            </Link>
           </nav>
 
           <div className="flex items-center space-x-4">
             <Link
               to="/cart"
               className="relative p-2 text-gray-700 hover:text-blue-600"
+              title="Cart"
             >
             <svg
               className="w-6 h-6"
@@ -54,6 +52,28 @@ function Header({ cartItemCount }) {
               </span>
             )}
             </Link>
+
+            {localStorage.getItem('token') && (
+              <Link
+                to="/user"
+                className="p-2 text-gray-700 hover:text-blue-600"
+                title="My Account"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
+              </Link>
+            )}
 
             {isLoggedIn ? (
               <button
