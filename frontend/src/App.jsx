@@ -4,6 +4,7 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import Login from './pages/Login'
 import OpsDashboard from './pages/OpsDashboard'
+import InventoryDashboard from './pages/InventoryDashboard'
 import ProductList from './pages/ProductList'
 import ProductDetail from './pages/ProductDetail'
 import Cart from './pages/Cart'
@@ -64,6 +65,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login onLoginSuccess={setUserType} />} />
             <Route path="/ops-dashboard" element={<OpsDashboard />} />
+            <Route path="/inventory-dashboard" element={<InventoryDashboard />} />
             <Route path="/" element={<ProductList onAddToCart={addToCart} />} />
             <Route path="/product/:id" element={<ProductDetail onAddToCart={addToCart} />} />
             <Route
