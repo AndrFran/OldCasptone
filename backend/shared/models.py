@@ -216,3 +216,58 @@ class Coupon(Base):
         if self.max_uses is None:
             return -1
         return max(0, self.max_uses - self.used_count)
+
+
+class UserConsent(Base):
+    """
+    Track user GDPR consent for cookies and data processing
+    GDPR requires explicit opt-in consent before non-essential tracking
+    """
+    __tablename__ = "user_consent"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
+
+    # Consent flags
+    essential = Column(Integer, default=1, nullable=False)  # Always true
+    analytics = Column(Integer, default=0, nullable=False)
+    marketing = Column(Integer, default=0, nullable=False)
+    preferences = Column(Integer, default=0, nullable=False)
+
+    # Metadata
+    ip_address = Column(String(45), nullable=True)  # IPv4 or IPv6
+    user_agent = Column(Text, nullable=True)
+    consent_source = Column(String(50), default='banner')  # 'banner', 'form', 'email'
+    request_id = Column(String(100), nullable=True, index=True)  # GDPR request ID
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)  # Consent validity (365 days)
+
+    # Relationships
+    user = relationship("User")
+
+    __table_args__ = (
+        Index("idx_user_consent_user_id", "user_id"),
+        Index("idx_user_consent_email", "email"),
+        Index("idx_user_consent_created_at", "created_at"),
+        CheckConstraint("essential IN (0, 1)", name="ck_consent_essential"),
+        CheckConstraint("analytics IN (0, 1)", name="ck_consent_analytics"),
+        CheckConstraint("marketing IN (0, 1)", name="ck_consent_marketing"),
+        CheckConstraint("preferences IN (0, 1)", name="ck_consent_preferences"),
+    )
+
+    def __repr__(self):
+        return f"<UserConsent(user_id={self.user_id}, email='{self.email}', analytics={self.analytics}, marketing={self.marketing})>"
+
+    def is_valid(self) -> bool:
+        """Check if consent is still valid"""
+        if self.expires_at is None:
+            return True
+        return datetime.utcnow() < self.expires_at
+
+    def has_consent(self, category: str) -> bool:
+        """Check if user has consented to a category"""
+        category_attr = getattr(self, category, None)
+        return category_attr == 1 if category_attr is not None else False

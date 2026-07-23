@@ -67,8 +67,19 @@ function Login({ onLoginSuccess }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <header className="bg-white shadow-sm sticky top-0 z-50">
+        <div className="container">
+          <div className="flex items-center justify-between h-16">
+            <div className="text-2xl font-bold text-gray-900">
+              👒 CAPS
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full">
         <div className="bg-white rounded-lg shadow-md p-8">
           <h2 className="text-2xl font-bold text-center mb-6">Vibe Strike Login</h2>
 
@@ -128,6 +139,7 @@ function Login({ onLoginSuccess }) {
               ))}
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

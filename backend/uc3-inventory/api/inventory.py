@@ -1,8 +1,10 @@
 # UC3 Inventory API Endpoints
 # FastAPI routes for inventory management
-# - GET /inventory — all inventory levels
+# - GET /inventory — filtered inventory with search, sorting, pagination
 # - GET /inventory/low-stock — low-stock alerts
-# - PATCH /inventory/{product_id} — restock
+# - GET /inventory/filters — available filter options (brands, teams, colors, silhouettes)
+# - PATCH /inventory/{product_id} — restock (add quantity)
+# - PUT /inventory/{product_id}/quantity — set quantity to absolute value
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -87,6 +89,130 @@ class RestockRequest(BaseModel):
         }
 
 
+class SetQuantityRequest(BaseModel):
+    """Request to set product quantity to absolute value"""
+    new_quantity: int = Field(..., ge=0, description="Target quantity (0 or more)")
+    operation_type: Optional[str] = Field(
+        default="set",
+        description="Operation type for audit logging ('set', 'restock', 'adjust')"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {"new_quantity": 100, "operation_type": "set"}
+        }
+
+
+class SetQuantityResponse(BaseModel):
+    """Response after setting product quantity"""
+    product_id: int
+    product_name: str
+    old_quantity: int
+    new_quantity: int
+    delta: int
+    stock: int
+    low_stock_threshold: int
+    urgency: str  # 'critical', 'warning', 'ok'
+    updated_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class FilterOption(BaseModel):
+    """Filter option with count"""
+    name: str
+    count: int
+
+
+class AvailableFiltersResponse(BaseModel):
+    """Available filter options"""
+    brands: List[FilterOption]
+    teams: List[FilterOption]
+    colors: List[FilterOption]
+    silhouettes: List[FilterOption]
+    stock_range: dict
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "brands": [
+                    {"name": "Nike", "count": 5},
+                    {"name": "Adidas", "count": 3}
+                ],
+                "teams": [
+                    {"name": "Design", "count": 4},
+                    {"name": "Operations", "count": 4}
+                ],
+                "colors": [
+                    {"name": "Red", "count": 3},
+                    {"name": "Blue", "count": 5}
+                ],
+                "silhouettes": [
+                    {"name": "9FORTY", "count": 4},
+                    {"name": "39THIRTY", "count": 4}
+                ],
+                "stock_range": {"min": 0, "max": 150}
+            }
+        }
+
+
+class ProductInventoryResponse(BaseModel):
+    """Product inventory with categorical data"""
+    id: int
+    name: str
+    description: Optional[str] = None
+    price: float
+    stock: int
+    low_stock_threshold: int
+    image_url: Optional[str] = None
+    brand: Optional[str] = None
+    team: Optional[str] = None
+    color: Optional[str] = None
+    silhouette: Optional[str] = None
+    sale_price: Optional[float] = None
+    urgency: str  # 'critical', 'warning', 'ok'
+    updated_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class FilteredInventoryResponse(BaseModel):
+    """Filtered inventory list with pagination"""
+    total: int
+    page: int
+    per_page: int
+    items: List[ProductInventoryResponse]
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "total": 50,
+                "page": 1,
+                "per_page": 20,
+                "items": [
+                    {
+                        "id": 1,
+                        "name": "Nike 9FORTY Red",
+                        "description": "Red Nike 9FORTY cap",
+                        "price": 29.99,
+                        "stock": 5,
+                        "low_stock_threshold": 10,
+                        "image_url": "https://example.com/image.jpg",
+                        "brand": "Nike",
+                        "team": "Design",
+                        "color": "Red",
+                        "silhouette": "9FORTY",
+                        "sale_price": None,
+                        "urgency": "critical",
+                        "updated_at": "2026-07-23T10:05:00Z"
+                    }
+                ]
+            }
+        }
+
+
 class ErrorResponse(BaseModel):
     """Error response"""
     error: str
@@ -99,52 +225,6 @@ class ErrorResponse(BaseModel):
 router = APIRouter()
 
 
-@router.get(
-    "/inventory",
-    response_model=InventoryListResponse,
-    tags=["UC3-Inventory"],
-    summary="Get all inventory levels",
-    description="Returns current stock levels for all products. Ops manager access only."
-)
-async def get_inventory(
-    db: Session = Depends(get_db),
-    user: User = Depends(require_ops_manager),
-):
-    """
-    Retrieve all product inventory levels.
-
-    **Access Control:** Ops manager only (may require auth in production)
-
-    **Returns:**
-    - `items`: List of inventory objects
-    - `total`: Total number of products
-
-    **Example Response:**
-    ```json
-    {
-      "items": [
-        {
-          "product_id": 1,
-          "product_name": "Widget A",
-          "stock": 50,
-          "low_stock_threshold": 10,
-          "price": 29.99,
-          "updated_at": "2026-07-23T10:05:00Z"
-        }
-      ],
-      "total": 1
-    }
-    ```
-    """
-    try:
-        inventory = InventoryService.get_inventory_levels(db)
-        return InventoryListResponse(items=inventory, total=len(inventory))
-    except Exception as e:
-        logger.error(f"Error retrieving inventory: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve inventory"
-        )
 
 
 @router.get(
@@ -277,6 +357,303 @@ async def restock_product(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to restock product"
+        )
+
+
+@router.get(
+    "/inventory/filters",
+    response_model=AvailableFiltersResponse,
+    tags=["UC3-Inventory"],
+    summary="Get available filter options",
+    description="Returns distinct values and counts for all categorical fields (brand, team, color, silhouette). Ops manager access only."
+)
+async def get_filters(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_ops_manager),
+):
+    """
+    Retrieve available filter options for inventory dashboard.
+
+    **Returns:**
+    - `brands`: List of {name, count} for each brand
+    - `teams`: List of {name, count} for each team
+    - `colors`: List of {name, count} for each color
+    - `silhouettes`: List of {name, count} for each silhouette
+    - `stock_range`: {min, max} stock levels across all products
+
+    **Access Control:** Ops manager only
+
+    **Example Response:**
+    ```json
+    {
+      "brands": [
+        {"name": "Nike", "count": 15},
+        {"name": "Adidas", "count": 12}
+      ],
+      "teams": [
+        {"name": "Design", "count": 10},
+        {"name": "Operations", "count": 17}
+      ],
+      "colors": [
+        {"name": "Red", "count": 8},
+        {"name": "Blue", "count": 9},
+        {"name": "Black", "count": 10}
+      ],
+      "silhouettes": [
+        {"name": "9FORTY", "count": 9},
+        {"name": "39THIRTY", "count": 18}
+      ],
+      "stock_range": {"min": 0, "max": 150}
+    }
+    ```
+    """
+    try:
+        filters = InventoryService.get_available_filters(db)
+        return AvailableFiltersResponse(**filters)
+    except Exception as e:
+        logger.error(f"Error retrieving filter options: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve filter options"
+        )
+
+
+@router.get(
+    "/inventory",
+    response_model=FilteredInventoryResponse,
+    tags=["UC3-Inventory"],
+    summary="Get filtered inventory with search, sort, pagination",
+    description="Returns inventory with advanced filtering, full-text search, sorting, and pagination. Ops manager access only."
+)
+async def get_inventory_filtered(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_ops_manager),
+    search: Optional[str] = None,
+    brand: Optional[List[str]] = None,
+    team: Optional[List[str]] = None,
+    color: Optional[List[str]] = None,
+    silhouette: Optional[List[str]] = None,
+    status: Optional[str] = None,
+    sort_by: str = "status_urgent",
+    page: int = 1,
+    per_page: int = 50,
+):
+    """
+    Retrieve inventory with advanced filtering, search, sorting, and pagination.
+
+    **Query Parameters:**
+
+    **Search & Filter:**
+    - `search`: Full-text search across name, brand, team, color, silhouette
+    - `brand`: Filter by brand(s) (comma-separated or multiple params)
+    - `team`: Filter by team(s)
+    - `color`: Filter by color(s)
+    - `silhouette`: Filter by silhouette(s)
+    - `status`: Filter by stock status ('critical', 'warning', 'ok')
+
+    **Sorting:**
+    - `sort_by`: Sort order (default: 'status_urgent')
+      - `status_urgent`: Critical → Warning → OK (then by stock level)
+      - `stock_asc`: Lowest stock first
+      - `stock_desc`: Highest stock first
+      - `price_asc`: Price low → high
+      - `price_desc`: Price high → low
+      - `name_asc`: Name A → Z
+      - `name_desc`: Name Z → A
+      - `updated_at_desc`: Most recently updated
+
+    **Pagination:**
+    - `page`: Page number (1-indexed, default: 1)
+    - `per_page`: Items per page (default: 50, max: 200)
+
+    **Returns:**
+    - `total`: Total number of matching products (across all pages)
+    - `page`: Current page number
+    - `per_page`: Items per page
+    - `items`: List of products with urgency status
+
+    **Access Control:** Ops manager only
+
+    **Example Request:**
+    ```
+    GET /inventory?search=nike&brand=Nike&status=critical&sort_by=stock_asc&page=1&per_page=20
+    ```
+
+    **Example Response:**
+    ```json
+    {
+      "total": 5,
+      "page": 1,
+      "per_page": 20,
+      "items": [
+        {
+          "id": 1,
+          "name": "Nike 9FORTY Red",
+          "description": "Red Nike cap",
+          "price": 29.99,
+          "stock": 3,
+          "low_stock_threshold": 10,
+          "image_url": "https://example.com/image.jpg",
+          "brand": "Nike",
+          "team": "Design",
+          "color": "Red",
+          "silhouette": "9FORTY",
+          "sale_price": null,
+          "urgency": "critical",
+          "updated_at": "2026-07-23T10:05:00Z"
+        }
+      ]
+    }
+    ```
+    """
+    try:
+        # Validate pagination params
+        if page < 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Page must be >= 1"
+            )
+        if per_page < 1 or per_page > 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="per_page must be between 1 and 200"
+            )
+
+        # Validate status filter
+        if status and status not in ["critical", "warning", "ok"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="status must be 'critical', 'warning', or 'ok'"
+            )
+
+        # Perform filtered query
+        products, total = InventoryService.get_inventory_filtered(
+            db,
+            search=search,
+            brands=brand,
+            teams=team,
+            colors=color,
+            silhouettes=silhouette,
+            status_filter=status,
+            sort_by=sort_by,
+            page=page,
+            per_page=per_page
+        )
+
+        return FilteredInventoryResponse(
+            total=total,
+            page=page,
+            per_page=per_page,
+            items=products
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving filtered inventory: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve inventory"
+        )
+
+
+@router.put(
+    "/inventory/{product_id}/quantity",
+    response_model=SetQuantityResponse,
+    tags=["UC3-Inventory"],
+    summary="Set product quantity to absolute value",
+    description="Set product stock to exact quantity (not incremental). Ops manager access only."
+)
+async def set_inventory_quantity(
+    product_id: int,
+    request: SetQuantityRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_ops_manager),
+):
+    """
+    Set product inventory to an absolute quantity value.
+
+    This endpoint replaces the current stock with the specified quantity.
+    Use this for in-place quantity editing in the dashboard.
+
+    **Parameters:**
+    - `product_id`: Product to update
+    - `new_quantity`: Target quantity (must be >= 0)
+    - `operation_type`: Type of operation for logging ('set', 'restock', 'adjust')
+
+    **Access Control:** Ops manager only
+
+    **Responses:**
+    - `200`: Quantity set successfully
+    - `400`: Bad request (negative quantity)
+    - `404`: Product not found
+    - `500`: Server error
+
+    **Example Request:**
+    ```json
+    {
+      "new_quantity": 100,
+      "operation_type": "set"
+    }
+    ```
+
+    **Example Response:**
+    ```json
+    {
+      "product_id": 1,
+      "product_name": "Nike 9FORTY Red",
+      "old_quantity": 5,
+      "new_quantity": 100,
+      "delta": 95,
+      "stock": 100,
+      "low_stock_threshold": 10,
+      "urgency": "ok",
+      "updated_at": "2026-07-23T10:15:00Z"
+    }
+    ```
+    """
+    try:
+        # Perform quantity update
+        result = InventoryService.set_inventory_quantity(
+            db,
+            product_id,
+            request.new_quantity,
+            request.operation_type or "set"
+        )
+
+        # Commit transaction
+        db.commit()
+
+        logger.info(
+            f"Product {product_id} quantity set: "
+            f"old={result['old_quantity']}, new={result['new_quantity']}"
+        )
+        return SetQuantityResponse(**result)
+
+    except ValueError as e:
+        db.rollback()
+        error_str = str(e).lower()
+        if "not found" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(e)
+            )
+        elif "negative" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(e)
+            )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error setting inventory quantity for product {product_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to set inventory quantity"
         )
 
 

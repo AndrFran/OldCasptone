@@ -3,7 +3,7 @@
 # Handles stock checks, reservations, and restocking with concurrency safety
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, or_, func, case
 from typing import Optional, List, Dict, Tuple
 from decimal import Decimal
 from datetime import datetime
@@ -385,3 +385,262 @@ class InventoryService:
             }
 
         return inventory_map
+
+    @staticmethod
+    def get_stock_status(stock: int, threshold: int) -> str:
+        """
+        Determine urgency status based on stock level and threshold.
+
+        Returns:
+            'critical' if stock <= threshold/2
+            'warning' if stock < threshold
+            'ok' if stock >= threshold
+        """
+        if stock <= threshold / 2:
+            return "critical"
+        elif stock < threshold:
+            return "warning"
+        else:
+            return "ok"
+
+    @staticmethod
+    def get_inventory_filtered(
+        db: Session,
+        search: Optional[str] = None,
+        brands: Optional[List[str]] = None,
+        teams: Optional[List[str]] = None,
+        colors: Optional[List[str]] = None,
+        silhouettes: Optional[List[str]] = None,
+        status_filter: Optional[str] = None,
+        sort_by: str = "status_urgent",
+        page: int = 1,
+        per_page: int = 50
+    ) -> Tuple[List[Dict], int]:
+        """
+        Fetch inventory with filtering, search, sorting, and pagination.
+
+        Args:
+            db: Database session
+            search: Full-text search term (searches name, brand, team, color, silhouette)
+            brands: List of brands to filter by (OR logic)
+            teams: List of teams to filter by (OR logic)
+            colors: List of colors to filter by (OR logic)
+            silhouettes: List of silhouettes to filter by (OR logic)
+            status_filter: Filter by urgency ('critical', 'warning', 'ok')
+            sort_by: Sort column/direction
+            page: Page number (1-indexed)
+            per_page: Items per page
+
+        Returns:
+            Tuple of (products_list, total_count)
+        """
+        query = db.query(Product)
+
+        # Text search (multi-field)
+        if search:
+            search_term = f"%{search.lower()}%"
+            query = query.filter(
+                or_(
+                    func.lower(Product.name).like(search_term),
+                    func.lower(Product.brand).like(search_term),
+                    func.lower(Product.team).like(search_term),
+                    func.lower(Product.color).like(search_term),
+                    func.lower(Product.silhouette).like(search_term)
+                )
+            )
+
+        # Categorical filters (OR within category, AND between categories)
+        if brands:
+            query = query.filter(Product.brand.in_(brands))
+        if teams:
+            query = query.filter(Product.team.in_(teams))
+        if colors:
+            query = query.filter(Product.color.in_(colors))
+        if silhouettes:
+            query = query.filter(Product.silhouette.in_(silhouettes))
+
+        # Status filter
+        if status_filter == "critical":
+            query = query.filter(Product.stock <= Product.low_stock_threshold / 2)
+        elif status_filter == "warning":
+            query = query.filter(
+                and_(
+                    Product.stock > Product.low_stock_threshold / 2,
+                    Product.stock < Product.low_stock_threshold
+                )
+            )
+        elif status_filter == "ok":
+            query = query.filter(Product.stock >= Product.low_stock_threshold)
+
+        # Get total count before pagination
+        total = query.count()
+
+        # Sorting
+        if sort_by == "stock_asc":
+            query = query.order_by(Product.stock.asc())
+        elif sort_by == "stock_desc":
+            query = query.order_by(Product.stock.desc())
+        elif sort_by == "price_asc":
+            query = query.order_by(Product.price.asc())
+        elif sort_by == "price_desc":
+            query = query.order_by(Product.price.desc())
+        elif sort_by == "name_asc":
+            query = query.order_by(Product.name.asc())
+        elif sort_by == "name_desc":
+            query = query.order_by(Product.name.desc())
+        elif sort_by == "updated_at_desc":
+            query = query.order_by(Product.updated_at.desc())
+        else:  # status_urgent (default)
+            # Sort by urgency (critical first), then by stock level
+            urgency_case = case(
+                (Product.stock <= Product.low_stock_threshold / 2, 0),  # critical
+                (Product.stock < Product.low_stock_threshold, 1),       # warning
+                else_=2                                                  # ok
+            )
+            query = query.order_by(urgency_case.asc(), Product.stock.asc())
+
+        # Pagination
+        offset = (page - 1) * per_page
+        products = query.offset(offset).limit(per_page).all()
+
+        # Build response dicts with urgency status
+        result = []
+        for product in products:
+            status = InventoryService.get_stock_status(
+                product.stock,
+                product.low_stock_threshold
+            )
+            result.append({
+                "id": product.id,
+                "name": product.name,
+                "description": product.description,
+                "price": float(product.price) if product.price else 0,
+                "stock": product.stock,
+                "low_stock_threshold": product.low_stock_threshold,
+                "image_url": product.image_url,
+                "brand": product.brand,
+                "team": product.team,
+                "color": product.color,
+                "silhouette": product.silhouette,
+                "sale_price": float(product.sale_price) if product.sale_price else None,
+                "urgency": status,
+                "updated_at": product.updated_at.isoformat() if product.updated_at else None
+            })
+
+        logger.info(
+            f"Retrieved filtered inventory: {len(result)} items "
+            f"(total: {total}, page: {page}, per_page: {per_page})"
+        )
+        return result, total
+
+    @staticmethod
+    def get_available_filters(db: Session) -> Dict:
+        """
+        Get available filter options for all categorical fields.
+
+        Returns dict with:
+        - brands: List of {name, count}
+        - teams: List of {name, count}
+        - colors: List of {name, count}
+        - silhouettes: List of {name, count}
+        - stock_range: {min, max}
+        """
+        products = db.query(Product).all()
+
+        if not products:
+            return {
+                "brands": [],
+                "teams": [],
+                "colors": [],
+                "silhouettes": [],
+                "stock_range": {"min": 0, "max": 0}
+            }
+
+        def get_filter_options(field_name: str) -> List[Dict]:
+            """Get distinct values and counts for a field"""
+            from collections import Counter
+            values = [
+                getattr(p, field_name) for p in products
+                if getattr(p, field_name)
+            ]
+            counts = Counter(values)
+            return [
+                {"name": v, "count": counts[v]}
+                for v in sorted(set(values))
+            ]
+
+        result = {
+            "brands": get_filter_options("brand"),
+            "teams": get_filter_options("team"),
+            "colors": get_filter_options("color"),
+            "silhouettes": get_filter_options("silhouette"),
+            "stock_range": {
+                "min": min(p.stock for p in products),
+                "max": max(p.stock for p in products)
+            }
+        }
+
+        logger.info("Retrieved available filter options")
+        return result
+
+    @staticmethod
+    def set_inventory_quantity(
+        db: Session,
+        product_id: int,
+        new_quantity: int,
+        operation_type: str = "set"
+    ) -> Dict:
+        """
+        Set product stock to exact quantity (absolute value, not incremental).
+
+        Args:
+            db: Database session
+            product_id: Product to update
+            new_quantity: Target quantity (must be >= 0)
+            operation_type: Type of operation for logging ('set', 'restock', 'adjust')
+
+        Returns:
+            Dict with before/after stock levels and updated product info
+
+        Raises:
+            ValueError: if new_quantity < 0 or product not found
+        """
+        if new_quantity < 0:
+            raise ValueError("Quantity cannot be negative")
+
+        product = db.query(Product).filter(
+            Product.id == product_id
+        ).with_for_update().first()
+
+        if not product:
+            raise ValueError(f"Product {product_id} not found")
+
+        old_quantity = product.stock
+        delta = new_quantity - old_quantity
+        product.stock = new_quantity
+        product.updated_at = datetime.utcnow()
+
+        db.flush()  # Flush but don't commit yet (caller commits)
+
+        status = InventoryService.get_stock_status(
+            product.stock,
+            product.low_stock_threshold
+        )
+
+        logger.info(
+            f"Inventory quantity set: Product {product_id}, "
+            f"old={old_quantity}, new={new_quantity}, delta={delta}, "
+            f"operation_type={operation_type}"
+        )
+
+        return {
+            "product_id": product.id,
+            "product_name": product.name,
+            "old_quantity": old_quantity,
+            "new_quantity": new_quantity,
+            "delta": delta,
+            "stock": product.stock,
+            "low_stock_threshold": product.low_stock_threshold,
+            "urgency": status,
+            "updated_at": product.updated_at.isoformat()
+        }
