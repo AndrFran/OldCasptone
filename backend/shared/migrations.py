@@ -333,42 +333,70 @@ def seed_coupons(session: Session):
 
 
 def seed_sample_order(session: Session):
-    """Seed a sample order for testing"""
-    logger.info("🌱 Seeding sample order...")
+    """Seed multiple test orders with different statuses"""
+    logger.info("🌱 Seeding test orders...")
 
-    # Get first customer and products
-    customer = session.query(Customer).first()
-    products = session.query(Product).filter(Product.stock > 0).limit(2).all()
+    customers = session.query(Customer).all()
+    products = session.query(Product).filter(Product.stock > 0).all()
 
-    if not customer or len(products) < 2:
-        logger.warning("⚠️  Cannot seed order: need at least 1 customer and 2 products in stock")
+    if not customers or not products:
+        logger.warning("⚠️  Cannot seed orders: need at least 1 customer and 1 product in stock")
         return
 
-    order = Order(
-        customer_id=customer.id,
-        status="pending",
-        coupon_code="WELCOME10",
-    )
+    # Create 10 test orders with different statuses
+    order_configs = [
+        # Pending orders
+        {"status": "pending", "customer_idx": 0, "product_qty": [(0, 2), (1, 1)]},
+        {"status": "pending", "customer_idx": 1, "product_qty": [(2, 1)]},
+        {"status": "pending", "customer_idx": 0, "product_qty": [(3, 3)]},
+        # Confirmed orders
+        {"status": "confirmed", "customer_idx": 1, "product_qty": [(0, 1), (2, 1)]},
+        {"status": "confirmed", "customer_idx": 0, "product_qty": [(4, 2)]},
+        {"status": "confirmed", "customer_idx": 1, "product_qty": [(1, 1)]},
+        # Shipped orders
+        {"status": "shipped", "customer_idx": 0, "product_qty": [(3, 1), (4, 1)]},
+        {"status": "shipped", "customer_idx": 1, "product_qty": [(0, 2)]},
+        # Delivered orders
+        {"status": "delivered", "customer_idx": 0, "product_qty": [(2, 1), (3, 1)]},
+        {"status": "delivered", "customer_idx": 1, "product_qty": [(1, 3)]},
+    ]
 
-    subtotal = Decimal(0)
-    for idx, product in enumerate(products[:2]):
-        item = OrderItem(
-            product_id=product.id,
-            quantity=1,
-            price=product.price,
-            subtotal=product.price,
+    order_count = 0
+    for config in order_configs:
+        if config["customer_idx"] >= len(customers):
+            continue
+
+        customer = customers[config["customer_idx"]]
+        order = Order(
+            customer_id=customer.id,
+            status=config["status"],
         )
-        order.items.append(item)
-        subtotal += product.price
 
-    order.subtotal = subtotal
-    order.discount_amount = subtotal * Decimal("0.10")  # 10% discount
-    order.total = subtotal - order.discount_amount
+        subtotal = Decimal(0)
+        for product_idx, qty in config["product_qty"]:
+            if product_idx < len(products):
+                product = products[product_idx]
+                item_total = product.price * Decimal(qty)
+                item = OrderItem(
+                    product_id=product.id,
+                    quantity=qty,
+                    price=product.price,
+                    subtotal=item_total,
+                )
+                order.items.append(item)
+                subtotal += item_total
 
-    session.add(order)
+        order.subtotal = subtotal
+        order.discount_amount = Decimal(0)
+        order.total = subtotal
+
+        session.add(order)
+        session.flush()
+        order_count += 1
+        logger.info(f"  ✓ Order #{order.id}: {customer.name} - {config['status']} - ${order.total}")
+
     session.commit()
-    logger.info(f"  ✓ Order #{order.id} for {customer.name}")
-    logger.info(f"✅ Seeded sample order")
+    logger.info(f"✅ Seeded {order_count} test orders")
 
 
 def reset_and_seed():
