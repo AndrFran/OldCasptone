@@ -21,7 +21,8 @@ function Checkout({ items, onOrderCreated }) {
   const [couponError, setCouponError] = useState(null)
 
   const subtotal = items.reduce((sum, item) => {
-    return sum + (parseFloat(item.price) * item.quantity)
+    const price = item.sale_price && item.sale_price < item.price ? item.sale_price : item.price
+    return sum + (parseFloat(price) * item.quantity)
   }, 0)
 
   const tax = subtotal * 0.08
@@ -264,16 +265,19 @@ function Checkout({ items, onOrderCreated }) {
                   </h2>
 
                   <div className="space-y-3">
-                    {items.map(item => (
-                      <div key={item.id} className="flex justify-between text-sm">
-                        <span className="text-gray-600">
-                          {item.name} x {item.quantity}
-                        </span>
-                        <span className="font-medium text-gray-900">
-                          ${(parseFloat(item.price) * item.quantity).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
+                    {items.map(item => {
+                      const itemPrice = item.sale_price && item.sale_price < item.price ? item.sale_price : item.price
+                      return (
+                        <div key={item.id} className="flex justify-between text-sm">
+                          <span className="text-gray-600">
+                            {item.name} x {item.quantity}
+                          </span>
+                          <span className="font-medium text-gray-900">
+                            ${(parseFloat(itemPrice) * item.quantity).toFixed(2)}
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
 
