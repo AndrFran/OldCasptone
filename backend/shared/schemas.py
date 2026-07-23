@@ -189,6 +189,7 @@ class OrderResponse(BaseModel):
 
     id: int
     customer_id: int
+    customer_email: Optional[str] = None
     status: OrderStatusEnum
     items: List[OrderItemResponse]
     subtotal: Decimal
@@ -200,6 +201,24 @@ class OrderResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def from_orm(cls, obj):
+        """Custom ORM conversion to include customer email"""
+        data = {
+            'id': obj.id,
+            'customer_id': obj.customer_id,
+            'customer_email': obj.customer.email if obj.customer else None,
+            'status': obj.status,
+            'items': [OrderItemResponse.from_orm(item) for item in obj.items],
+            'subtotal': obj.subtotal,
+            'discount_amount': obj.discount_amount,
+            'total': obj.total,
+            'coupon_code': obj.coupon_code,
+            'created_at': obj.created_at,
+            'updated_at': obj.updated_at,
+        }
+        return cls(**data)
 
 
 class OrderList(BaseModel):

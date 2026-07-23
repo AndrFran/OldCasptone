@@ -237,7 +237,7 @@ function OpsDashboard() {
                     {filteredOrders.map(order => (
                       <tr key={order.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4 font-medium">#{order.id}</td>
-                        <td className="py-3 px-4">{order.customer_id || 'N/A'}</td>
+                        <td className="py-3 px-4">{order.customer_email || 'N/A'}</td>
                         <td className="py-3 px-4 text-right font-semibold">${parseFloat(order.total || 0).toFixed(2)}</td>
                         <td className="py-3 px-4">
                           <select
