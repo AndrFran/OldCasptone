@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ordersAPI } from '../api/orders'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorMessage from '../components/ErrorMessage'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui'
+import { Button } from '../components/ui'
 
 function OrderConfirmation() {
   const { orderId } = useParams()
@@ -50,8 +52,10 @@ function OrderConfirmation() {
       <div className="py-12">
         <div className="container max-w-2xl">
           <ErrorMessage message={error || 'Order not found'} />
-          <Link to="/" className="btn btn-secondary mt-4">
-            Back to Home
+          <Link to="/">
+            <Button variant="secondary" className="mt-4">
+              Back to Home
+            </Button>
           </Link>
         </div>
       </div>
@@ -83,7 +87,8 @@ function OrderConfirmation() {
         </div>
 
         {/* Order Details Card */}
-        <div className="card p-8 mb-8">
+        <Card className="mb-8">
+          <CardContent className="pt-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div>
               <p className="text-sm text-gray-500 uppercase tracking-wide">Order Number</p>
@@ -179,7 +184,8 @@ function OrderConfirmation() {
               </span>
             </div>
           </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Next Steps */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
@@ -206,25 +212,27 @@ function OrderConfirmation() {
             <h2 className="text-2xl font-bold text-gray-900 mb-6">You Might Also Like</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {recommendations.slice(0, 3).map((product, idx) => (
-                <div key={idx} className="card p-4 hover:shadow-lg transition-shadow">
-                  <div className="h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center mb-4">
-                    <span className="text-4xl">📦</span>
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                    {product.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                    {product.reason}
-                  </p>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-lg font-bold text-gray-900">
-                      ${parseFloat(product.price).toFixed(2)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      Stock: {product.stock}
-                    </span>
-                  </div>
-                </div>
+                <Card key={idx} className="hover:shadow-lg transition-shadow">
+                  <CardContent className="pt-4">
+                    <div className="h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                      <span className="text-4xl">📦</span>
+                    </div>
+                    <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                      {product.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                      {product.reason}
+                    </p>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-lg font-bold text-gray-900">
+                        ${parseFloat(product.price).toFixed(2)}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        Stock: {product.stock}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
@@ -234,15 +242,19 @@ function OrderConfirmation() {
         <div className="flex flex-col sm:flex-row gap-4">
           <Link
             to={`/order-tracking?orderId=${order.id}`}
-            className="flex-1 btn btn-primary py-3 text-center"
+            className="flex-1"
           >
-            Track Your Order
+            <Button variant="default" className="w-full">
+              Track Your Order
+            </Button>
           </Link>
           <Link
             to="/"
-            className="flex-1 btn btn-secondary py-3 text-center"
+            className="flex-1"
           >
-            Continue Shopping
+            <Button variant="secondary" className="w-full">
+              Continue Shopping
+            </Button>
           </Link>
         </div>
       </div>

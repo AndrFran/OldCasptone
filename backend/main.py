@@ -43,9 +43,23 @@ async def health_check():
 # ===================== Database Initialization =====================
 @app.on_event("startup")
 async def startup():
-    """Initialize database on startup"""
+    """Initialize database and seed test data on startup"""
     logger.info("Initializing database...")
     init_db()
+
+    # Seed test data if needed
+    from shared.migrations import seed_users, seed_customers, seed_products, seed_coupons
+    from shared.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        seed_users(db)
+        seed_customers(db)
+        seed_products(db)
+        seed_coupons(db)
+    finally:
+        db.close()
+
     logger.info("✅ Database ready")
 
 

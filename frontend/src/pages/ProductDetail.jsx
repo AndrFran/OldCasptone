@@ -64,6 +64,7 @@ function ProductDetail({ onAddToCart }) {
 
   const isOutOfStock = product.stock === 0
   const isLowStock = product.stock > 0 && product.stock < (product.low_stock_threshold || 10)
+  const hasDiscount = product.sale_price && product.sale_price < product.price
 
   return (
     <div className="py-12">
@@ -75,18 +76,37 @@ function ProductDetail({ onAddToCart }) {
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back to Products
+          Back to Caps
         </button>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           {/* Product Image */}
-          <div className="flex items-center justify-center bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg p-12 h-96">
-            <div className="text-9xl">📦</div>
+          <div className="flex items-center justify-center bg-gray-100 rounded-lg p-8 h-96 relative">
+            {product.image_url ? (
+              <img
+                src={product.image_url}
+                alt={product.name}
+                className="w-full h-full object-cover rounded-lg"
+              />
+            ) : (
+              <div className="text-9xl">👒</div>
+            )}
+            {hasDiscount && (
+              <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-full font-bold text-lg">
+                Sale
+              </div>
+            )}
           </div>
 
           {/* Product Info */}
           <div className="flex flex-col justify-between">
             <div>
+              {product.brand && (
+                <p className="text-sm uppercase tracking-wider font-semibold text-gray-500 mb-2">
+                  {product.brand}
+                </p>
+              )}
+
               <div className="flex items-start justify-between mb-4">
                 <h1 className="text-4xl font-bold text-gray-900 flex-1">
                   {product.name}
@@ -99,14 +119,30 @@ function ProductDetail({ onAddToCart }) {
                 )}
               </div>
 
-              <div className="flex items-baseline space-x-2 mb-6">
-                <span className="text-4xl font-bold text-gray-900">
-                  ${parseFloat(product.price).toFixed(2)}
-                </span>
-                {product.stock > 0 && (
-                  <span className="text-gray-500">
-                    ({product.stock} available)
-                  </span>
+              <div className="flex items-baseline gap-3 mb-6">
+                {hasDiscount ? (
+                  <>
+                    <span className="text-4xl font-bold text-blue-600">
+                      ${parseFloat(product.sale_price).toFixed(2)}
+                    </span>
+                    <span className="text-2xl text-gray-400 line-through">
+                      ${parseFloat(product.price).toFixed(2)}
+                    </span>
+                    <span className="text-sm font-semibold text-red-600">
+                      Save ${(parseFloat(product.price) - parseFloat(product.sale_price)).toFixed(2)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-4xl font-bold text-gray-900">
+                      ${parseFloat(product.price).toFixed(2)}
+                    </span>
+                    {product.stock > 0 && (
+                      <span className="text-gray-500">
+                        ({product.stock} available)
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -114,6 +150,31 @@ function ProductDetail({ onAddToCart }) {
                 <p className="text-gray-600 text-lg leading-relaxed">
                   {product.description || 'No description available'}
                 </p>
+              </div>
+
+              {/* Cap Details */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-8">
+                <h3 className="font-semibold text-gray-900 mb-4">Details</h3>
+                <div className="space-y-3 text-sm">
+                  {product.silhouette && (
+                    <div>
+                      <p className="text-gray-600">Silhouette</p>
+                      <p className="font-semibold text-gray-900">{product.silhouette}</p>
+                    </div>
+                  )}
+                  {product.color && (
+                    <div>
+                      <p className="text-gray-600">Colour</p>
+                      <p className="font-semibold text-gray-900">{product.color}</p>
+                    </div>
+                  )}
+                  {product.team && (
+                    <div>
+                      <p className="text-gray-600">Team</p>
+                      <p className="font-semibold text-gray-900">{product.team}</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Stock Status */}

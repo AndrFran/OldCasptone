@@ -40,6 +40,12 @@ class Product(Base):
     price = Column(Numeric(10, 2), nullable=False)
     stock = Column(Integer, nullable=False, default=0)
     low_stock_threshold = Column(Integer, default=10)
+    image_url = Column(Text, nullable=True)
+    brand = Column(String(100), nullable=True)
+    team = Column(String(100), nullable=True)
+    color = Column(String(50), nullable=True)
+    silhouette = Column(String(50), nullable=True)
+    sale_price = Column(Numeric(10, 2), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

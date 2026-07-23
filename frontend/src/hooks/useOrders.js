@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import ordersAPI from '../api/orders'
+import { uc4Adapter } from '../adapters/uc4-real-adapter'
 
 export const useOrders = (refreshInterval = 30000, statusFilter = null) => {
   const [orders, setOrders] = useState([])
@@ -12,7 +12,7 @@ export const useOrders = (refreshInterval = 30000, statusFilter = null) => {
     setError(null)
     try {
       const params = statusFilter ? { status: statusFilter } : {}
-      const data = await ordersAPI.getAll(params)
+      const data = await uc4Adapter.getAllOrders(params)
       const orders = data.items || []
       
       // Sort by created_at descending (most recent first)
@@ -29,7 +29,7 @@ export const useOrders = (refreshInterval = 30000, statusFilter = null) => {
 
   const fetchOrderById = useCallback(async (orderId) => {
     try {
-      const data = await ordersAPI.getById(orderId)
+      const data = await uc4Adapter.getOrderById(orderId)
       setSelectedOrder(data)
       return data
     } catch (err) {
@@ -41,7 +41,7 @@ export const useOrders = (refreshInterval = 30000, statusFilter = null) => {
 
   const updateOrderStatus = useCallback(async (orderId, newStatus) => {
     try {
-      const updated = await ordersAPI.updateStatus(orderId, newStatus)
+      const updated = await uc4Adapter.updateOrderStatus(orderId, newStatus)
       
       // Update in local state
       setOrders(prev =>

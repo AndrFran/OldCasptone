@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
 
 function Login({ onLoginSuccess }) {
   const [formData, setFormData] = useState({
@@ -14,7 +13,7 @@ function Login({ onLoginSuccess }) {
   const demoUsers = [
     { email: 'alice@example.com', password: 'password123', type: 'Customer', desc: 'Browse & order' },
     { email: 'bob@example.com', password: 'password123', type: 'Customer', desc: 'Browse & order' },
-    { email: 'ops1@example.com', password: 'password123', type: 'Ops Manager', desc: 'Inventory & orders' }
+    { email: 'ops@example.com', password: 'password123', type: 'Ops Manager', desc: 'Inventory & orders' }
   ]
 
   const handleChange = (e) => {
@@ -33,14 +32,24 @@ function Login({ onLoginSuccess }) {
     setLoading(true)
 
     try {
-      const response = await axios.post('http://localhost:8000/auth/login', {
-        email,
-        password
+      const response = await fetch('http://localhost:8000/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
       })
-      const { access_token, user_type } = response.data
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Login failed')
+      }
+
+      const { access_token, user_type, user_id, email: userEmail } = data
 
       localStorage.setItem('token', access_token)
       localStorage.setItem('user_type', user_type)
+      localStorage.setItem('user_id', user_id)
+      localStorage.setItem('email', userEmail)
 
       if (onLoginSuccess) onLoginSuccess(user_type)
 
@@ -50,7 +59,8 @@ function Login({ onLoginSuccess }) {
         navigate('/')
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed')
+      console.error('Login error:', err)
+      setError(err.message || 'Login failed')
     } finally {
       setLoading(false)
     }
