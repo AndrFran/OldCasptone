@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { ordersAPI } from '../api/orders'
+import { uc4Adapter } from '../adapters/uc4-adapter'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorMessage from '../components/ErrorMessage'
 
@@ -26,7 +26,7 @@ function OrderTracking() {
       setError(null)
       setSearched(true)
 
-      const response = await ordersAPI.getById(orderId)
+      const response = await uc4Adapter.getOrderById(orderId)
       setOrder(response)
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Order not found. Please check the order ID.'
