@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { uc4Adapter } from '../adapters/uc4-adapter'
+import { uc4Adapter } from '../adapters/uc4-real-adapter'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ErrorMessage from '../components/ErrorMessage'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui'

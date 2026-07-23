@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { uc4Adapter } from '../adapters/uc4-adapter'
+import { uc4Adapter } from '../adapters/uc4-real-adapter'
 
 export const useOrders = (refreshInterval = 30000, statusFilter = null) => {
   const [orders, setOrders] = useState([])
