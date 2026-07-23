@@ -5,8 +5,10 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
   const navigate = useNavigate()
 
   const subtotal = items.reduce((sum, item) => {
-    const price = item.sale_price && item.sale_price < item.price ? item.sale_price : item.price
-    return sum + (parseFloat(price) * item.quantity)
+    const salePrice = item.sale_price ? parseFloat(item.sale_price) : null
+    const regularPrice = parseFloat(item.price)
+    const price = salePrice && salePrice < regularPrice ? salePrice : regularPrice
+    return sum + (price * item.quantity)
   }, 0)
 
   const tax = subtotal * 0.08
@@ -68,7 +70,7 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
                     {item.name}
                   </h3>
                   <div className="text-sm mb-3">
-                    {item.sale_price && item.sale_price < item.price ? (
+                    {item.sale_price && parseFloat(item.sale_price) < parseFloat(item.price) ? (
                       <>
                         <p className="text-gray-600">
                           Sale Price: <span className="font-semibold text-blue-600">${parseFloat(item.sale_price).toFixed(2)}</span>
@@ -104,7 +106,7 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
                     </div>
 
                     <span className="text-lg font-bold text-gray-900">
-                      ${(parseFloat(item.sale_price && item.sale_price < item.price ? item.sale_price : item.price) * item.quantity).toFixed(2)}
+                      ${((item.sale_price && parseFloat(item.sale_price) < parseFloat(item.price) ? parseFloat(item.sale_price) : parseFloat(item.price)) * item.quantity).toFixed(2)}
                     </span>
 
                     <button
