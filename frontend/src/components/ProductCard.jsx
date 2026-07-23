@@ -1,5 +1,8 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { Card, CardContent } from '../components/ui'
+import { Badge } from '../components/ui'
+import { Button } from '../components/ui'
 
 function ProductCard({ product, onAddToCart }) {
   const isOutOfStock = product.stock === 0
@@ -14,22 +17,22 @@ function ProductCard({ product, onAddToCart }) {
 
   return (
     <Link to={`/product/${product.id}`}>
-      <div className="card h-full hover:shadow-lg transition-shadow">
+      <Card className="h-full hover:shadow-lg transition-shadow">
         <div className="relative h-48 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-t-lg flex items-center justify-center overflow-hidden">
           <div className="text-6xl">📦</div>
           {isOutOfStock && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <span className="badge-danger font-bold text-lg">Out of Stock</span>
+              <Badge variant="destructive" className="font-bold text-lg">Out of Stock</Badge>
             </div>
           )}
           {isLowStock && !isOutOfStock && (
             <div className="absolute top-2 right-2">
-              <span className="badge-warning">Low Stock</span>
+              <Badge variant="warning">Low Stock</Badge>
             </div>
           )}
         </div>
 
-        <div className="p-4">
+        <CardContent className="pt-4">
           <h3 className="font-semibold text-lg text-gray-900 line-clamp-2 mb-2">
             {product.name}
           </h3>
@@ -51,19 +54,16 @@ function ProductCard({ product, onAddToCart }) {
             )}
           </div>
 
-          <button
+          <Button
             onClick={handleQuickAdd}
             disabled={isOutOfStock}
-            className={`w-full py-2 rounded-lg font-medium transition-colors ${
-              isOutOfStock
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'btn-primary hover:bg-blue-700'
-            }`}
+            variant={isOutOfStock ? 'secondary' : 'default'}
+            className="w-full"
           >
             {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
-          </button>
-        </div>
-      </div>
+          </Button>
+        </CardContent>
+      </Card>
     </Link>
   )
 }
