@@ -49,6 +49,14 @@ async def startup():
     logger.info("✅ Database ready")
 
 
+# ===================== Import Auth Routes =====================
+try:
+    from api.auth import router as auth_router
+    app.include_router(auth_router)
+    logger.info("Loaded Auth router")
+except Exception as e:
+    logger.info(f"Auth router not available: {e}")
+
 # ===================== Import UC Routes =====================
 # Routes for all 4 Use Cases (conditional loading for partial implementations)
 try:
@@ -73,9 +81,16 @@ except Exception as e:
     logger.info(f"UC2 Promotions router not available: {e}")
 
 try:
+    from api.inventory import router as inventory_router
+    app.include_router(inventory_router, tags=["Inventory"])
+    logger.info("Loaded Inventory router")
+except Exception as e:
+    logger.info(f"Inventory router not available: {e}")
+
+try:
     # Try uc3_inventory with underscore
-    from uc3_inventory.api.inventory import router as inventory_router
-    app.include_router(inventory_router, tags=["UC3-Inventory"])
+    from uc3_inventory.api.inventory import router as inventory_router_uc3
+    app.include_router(inventory_router_uc3, tags=["UC3-Inventory"])
     logger.info("Loaded UC3 Inventory router")
 except Exception as e:
     logger.info(f"UC3 Inventory router not available (tried underscore): {e}")

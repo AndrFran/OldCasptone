@@ -346,6 +346,37 @@ async def update_order_status(
 
 
 @router.get(
+    "",
+    response_model=OrderList,
+    summary="Get All Orders (Ops Dashboard)",
+    description="Retrieve all orders with pagination (useful for ops dashboard).",
+)
+async def get_all_orders(
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+) -> OrderList:
+    """Get all orders (for ops dashboard)"""
+    try:
+        from shared.models import Order
+        total = db.query(Order).count()
+        orders = (
+            db.query(Order)
+            .order_by(Order.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        return OrderList(items=[OrderResponse.from_orm(o) for o in orders], total=total)
+    except Exception as e:
+        logger.error(f"Unexpected error retrieving all orders: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve orders",
+        )
+
+
+@router.get(
     "/status/{status}",
     response_model=OrderList,
     summary="Get Orders by Status (Ops Dashboard)",
