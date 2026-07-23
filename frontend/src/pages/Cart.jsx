@@ -54,8 +54,12 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
           <div className="lg:col-span-2 space-y-4">
             {items.map(item => (
               <div key={item.id} className="card p-6 flex gap-6">
-                <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-4xl">📦</span>
+                <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-4xl">👒</span>
+                  )}
                 </div>
 
                 <div className="flex-1">
@@ -128,12 +132,12 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
                 <span className="text-2xl text-blue-600">${total.toFixed(2)}</span>
               </div>
 
-              <button
-                onClick={() => navigate('/checkout')}
-                className="w-full btn btn-primary mt-6"
+              <Link
+                to="/checkout"
+                className="w-full btn btn-primary text-center block py-3"
               >
                 Proceed to Checkout
-              </button>
+              </Link>
 
               <Link
                 to="/"
@@ -141,10 +145,6 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
               >
                 Continue Shopping
               </Link>
-
-              <p className="text-xs text-gray-500 text-center mt-4">
-                You can apply a coupon code at checkout
-              </p>
             </div>
           </div>
         </div>

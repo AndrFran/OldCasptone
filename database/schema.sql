@@ -9,6 +9,12 @@ CREATE TABLE IF NOT EXISTS products (
   price DECIMAL(10, 2) NOT NULL,
   stock INTEGER NOT NULL DEFAULT 0,
   low_stock_threshold INTEGER DEFAULT 10,
+  image_url TEXT,
+  brand VARCHAR(100),
+  team VARCHAR(100),
+  color VARCHAR(50),
+  silhouette VARCHAR(50),
+  sale_price DECIMAL(10, 2),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -93,14 +99,25 @@ CREATE INDEX IF NOT EXISTS idx_coupons_expires_at ON coupons(expires_at);
 
 -- ===================== Sample Data (Seeding) =====================
 
--- Insert sample products (for testing & demo)
-INSERT INTO products (name, description, price, stock, low_stock_threshold)
+-- Insert sample products (trucker caps)
+INSERT INTO products (name, description, price, stock, low_stock_threshold, image_url, brand, team, color, silhouette, sale_price)
 VALUES
-  ('Widget A', 'High-quality widget with advanced features', 29.99, 50, 10),
-  ('Widget B', 'Standard widget for everyday use', 49.99, 5, 10),
-  ('Widget C', 'Premium widget with extra durability', 79.99, 20, 10),
-  ('Gadget X', 'Essential gadget for productivity', 39.99, 0, 5),
-  ('Gadget Y', 'Advanced gadget for professionals', 99.99, 15, 10)
+  ('New York Yankees 9FORTY', 'Classic trucker style with embroidered Yankees logo', 34.99, 25, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', 'New York Yankees', 'Navy', '9FORTY', 29.99),
+  ('Los Angeles Dodgers 9FIFTY', 'Snapback trucker with blue embroidered Dodgers patch', 39.99, 18, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', 'Los Angeles Dodgers', 'Royal Blue', '9FIFTY', 34.99),
+  ('Ducati Motor 9FORTY', 'Red trucker with embroidered Ducati crest', 42.99, 12, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', 'Ducati Motor', 'Red', '9FORTY', null),
+  ('Boston Red Sox 9FIFTY', 'Vintage style trucker with Red Sox logo', 39.99, 22, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', 'Boston Red Sox', 'Dark Red', '9FIFTY', null),
+  ('NFL League 9FORTY', 'Black trucker with NFL embroidered logo', 34.99, 30, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', null, 'Black', '9FORTY', 29.99),
+  ('San Francisco Giants 9FORTY', 'Orange and black trucker cap', 34.99, 8, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', 'San Francisco Giants', 'Orange', '9FORTY', null),
+  ('Chicago Cubs 9FIFTY', 'Snapback style with Cubs logo embroidery', 39.99, 15, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', 'Chicago Cubs', 'Navy', '9FIFTY', null),
+  ('Miami Heat 9FORTY', 'Sleek trucker with Heat logo', 34.99, 20, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', 'Miami Heat', 'Black', '9FORTY', 29.99),
+  ('Vintage Trucker Grey', 'Classic mesh trucker cap in grey', 29.99, 35, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', null, 'Grey', '9FORTY', null),
+  ('Retro Mesh 9FORTY', 'Breathable mesh trucker cap', 29.99, 5, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', null, 'Khaki', '9FORTY', null),
+  ('Premium Leather Trucker', 'Leather-accented trucker with embroidery', 49.99, 10, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', null, 'Black', '9FIFTY', 44.99),
+  ('Canvas Trucker Green', 'Heavy-duty canvas construction trucker', 39.99, 18, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', null, 'Olive Green', '9FORTY', null),
+  ('Metallic Logo Trucker', 'Shiny metallic logo trucker cap', 44.99, 7, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', null, 'Silver', '9FIFTY', 39.99),
+  ('Heritage Trucker Navy', 'Classic heritage-inspired trucker design', 34.99, 28, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', null, 'Navy', '9FORTY', null),
+  ('Snapback Neon Trucker', 'Bright neon snapback trucker cap', 32.99, 0, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', null, 'Neon Yellow', '9FIFTY', null),
+  ('Premium Wool Trucker', 'Luxury wool blend trucker cap', 54.99, 6, 10, 'https://images.unsplash.com/photo-1588668214407-3dae51d46bb1?w=400', 'New Era', null, 'Burgundy', '9FORTY', 49.99)
 ON CONFLICT DO NOTHING;
 
 -- Insert sample users with hashed passwords (all passwords: password123)

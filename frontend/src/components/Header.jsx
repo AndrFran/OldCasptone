@@ -16,14 +16,14 @@ function Header({ cartItemCount }) {
       <div className="container">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center space-x-2">
-            <div className="text-2xl font-bold text-blue-600">
-              ⚡ Vibe Strike
+            <div className="text-2xl font-bold text-gray-900">
+              👒 CAPS
             </div>
           </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
             <Link to="/" className="text-gray-700 hover:text-blue-600 font-medium">
-              Products
+              Shop
             </Link>
             <Link to="/order-tracking" className="text-gray-700 hover:text-blue-600 font-medium">
               Track Order

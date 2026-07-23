@@ -38,6 +38,12 @@ class ProductBase(BaseModel):
     price: Decimal = Field(..., gt=0, decimal_places=2)
     stock: int = Field(default=0, ge=0)
     low_stock_threshold: int = Field(default=10, ge=0)
+    image_url: Optional[str] = Field(None, max_length=2000)
+    brand: Optional[str] = Field(None, max_length=100)
+    team: Optional[str] = Field(None, max_length=100)
+    color: Optional[str] = Field(None, max_length=50)
+    silhouette: Optional[str] = Field(None, max_length=50)
+    sale_price: Optional[Decimal] = Field(None, decimal_places=2)
 
 
 class Product(ProductBase):

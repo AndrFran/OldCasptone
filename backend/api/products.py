@@ -19,19 +19,27 @@ router = APIRouter(prefix="/products", tags=["UC1-Products"])
     "",
     response_model=ProductList,
     summary="List all products",
-    description="Returns all available products with current stock levels",
+    description="Returns all available products with current stock levels, with optional filtering and sorting",
 )
 async def list_products(
     skip: int = 0,
     limit: int = 100,
+    color: str = None,
+    silhouette: str = None,
+    brand: str = None,
+    sort: str = "recommended",
     db: Session = Depends(get_db),
 ) -> ProductList:
     """
-    Get all products with pagination.
+    Get all products with pagination, filtering, and sorting.
 
     **Query Parameters:**
     - `skip`: Number of items to skip (default: 0)
     - `limit`: Maximum items to return (default: 100)
+    - `color`: Filter by color (e.g., 'Navy', 'Black')
+    - `silhouette`: Filter by silhouette (e.g., '9FORTY', '9FIFTY')
+    - `brand`: Filter by brand (e.g., 'New Era')
+    - `sort`: Sort order - 'recommended' (default), 'price_asc', 'price_desc', 'newest'
 
     **Response:**
     ```json
@@ -39,12 +47,14 @@ async def list_products(
         "items": [
             {
                 "id": 1,
-                "name": "Widget A",
-                "description": "Premium widget",
-                "price": 29.99,
-                "stock": 50,
-                "low_stock_threshold": 10,
-                "created_at": "2026-07-23T10:00:00Z"
+                "name": "New York Yankees 9FORTY",
+                "description": "Classic trucker style...",
+                "price": 34.99,
+                "stock": 25,
+                "brand": "New Era",
+                "color": "Navy",
+                "silhouette": "9FORTY",
+                "sale_price": 29.99
             }
         ],
         "total": 15
@@ -52,17 +62,31 @@ async def list_products(
     ```
     """
     try:
-        # Get total count
-        total = db.query(Product).count()
+        query = db.query(Product)
+
+        # Apply filters
+        if color:
+            query = query.filter(Product.color == color)
+        if silhouette:
+            query = query.filter(Product.silhouette == silhouette)
+        if brand:
+            query = query.filter(Product.brand == brand)
+
+        # Get total count after filtering
+        total = query.count()
+
+        # Apply sorting
+        if sort == "price_asc":
+            query = query.order_by(Product.price.asc())
+        elif sort == "price_desc":
+            query = query.order_by(Product.price.desc())
+        elif sort == "newest":
+            query = query.order_by(Product.created_at.desc())
+        else:  # recommended (default)
+            query = query.order_by(Product.id.asc())
 
         # Get paginated products
-        products = (
-            db.query(Product)
-            .order_by(Product.id)
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        products = query.offset(skip).limit(limit).all()
 
         return ProductList(
             items=[ProductResponse.from_orm(p) for p in products],
