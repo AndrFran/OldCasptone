@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import logging
 
-from shared.models import Product, Customer, Order, OrderItem, Coupon
+from shared.models import Product, Customer, Order, OrderItem, Coupon, User
 from shared.db import engine, SessionLocal
+from shared.auth import hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,31 @@ def init_schema():
     logger.info("🔧 Initializing database schema...")
     Base.metadata.create_all(bind=engine)
     logger.info("✅ Schema initialization complete")
+
+
+def seed_users(session: Session):
+    """Seed test users"""
+    logger.info("🌱 Seeding users...")
+
+    users_data = [
+        {"email": "alice@example.com", "password": "password123", "user_type": "customer"},
+        {"email": "bob@example.com", "password": "password123", "user_type": "customer"},
+        {"email": "ops@example.com", "password": "password123", "user_type": "ops_manager"},
+    ]
+
+    for data in users_data:
+        existing = session.query(User).filter(User.email == data["email"]).first()
+        if not existing:
+            user = User(
+                email=data["email"],
+                password_hash=hash_password(data["password"]),
+                user_type=data["user_type"]
+            )
+            session.add(user)
+            logger.info(f"  ✓ {data['email']} ({data['user_type']})")
+
+    session.commit()
+    logger.info(f"✅ Seeded {len(users_data)} users")
 
 
 def seed_products(session: Session):
@@ -357,6 +383,7 @@ def reset_and_seed():
 
     session = SessionLocal()
     try:
+        seed_users(session)
         seed_products(session)
         seed_customers(session)
         seed_coupons(session)
