@@ -54,8 +54,12 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
           <div className="lg:col-span-2 space-y-4">
             {items.map(item => (
               <div key={item.id} className="card p-6 flex gap-6">
-                <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-4xl">📦</span>
+                <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-4xl">👒</span>
+                  )}
                 </div>
 
                 <div className="flex-1">
@@ -129,10 +133,10 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
               </div>
 
               <button
-                onClick={() => navigate('/checkout')}
-                className="w-full btn btn-primary mt-6"
+                disabled
+                className="w-full py-3 px-4 rounded-lg font-medium text-gray-400 bg-gray-200 cursor-not-allowed mt-6"
               >
-                Proceed to Checkout
+                Checkout (Coming Soon)
               </button>
 
               <Link
@@ -143,7 +147,7 @@ function Cart({ items, onRemove, onUpdateQuantity }) {
               </Link>
 
               <p className="text-xs text-gray-500 text-center mt-4">
-                You can apply a coupon code at checkout
+                Order placement coming soon. Keep shopping!
               </p>
             </div>
           </div>
