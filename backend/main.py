@@ -44,9 +44,22 @@ async def health_check():
 @app.on_event("startup")
 async def startup():
     """Initialize database on startup"""
-    logger.info("Initializing database...")
     init_db()
-    logger.info("✅ Database ready")
+
+    # Seed data if tables are empty
+    from shared.db import SessionLocal
+    from shared.models import User
+    session = SessionLocal()
+    try:
+        user_count = session.query(User).count()
+        if user_count == 0:
+            from shared.migrations import seed_users, seed_products, seed_customers, seed_coupons
+            seed_users(session)
+            seed_products(session)
+            seed_customers(session)
+            seed_coupons(session)
+    finally:
+        session.close()
 
 
 # ===================== Import Auth Routes =====================

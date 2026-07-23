@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 function Header({ cartItemCount }) {
   const navigate = useNavigate()
   const isLoggedIn = !!localStorage.getItem('token')
+  const userType = localStorage.getItem('user_type')
 
   const handleLogout = () => {
     localStorage.removeItem('token')
@@ -25,6 +26,11 @@ function Header({ cartItemCount }) {
             <Link to="/" className="text-gray-700 hover:text-blue-600 font-medium">
               Shop
             </Link>
+            {userType === 'ops_manager' && (
+              <Link to="/inventory-dashboard" className="text-gray-700 hover:text-blue-600 font-medium">
+                Inventory
+              </Link>
+            )}
           </nav>
 
           <div className="flex items-center space-x-4">
