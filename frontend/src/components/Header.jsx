@@ -1,7 +1,16 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
 function Header({ cartItemCount }) {
+  const navigate = useNavigate()
+  const isLoggedIn = !!localStorage.getItem('token')
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user_type')
+    navigate('/login')
+  }
+
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="container">
@@ -21,10 +30,11 @@ function Header({ cartItemCount }) {
             </Link>
           </nav>
 
-          <Link
-            to="/cart"
-            className="relative p-2 text-gray-700 hover:text-blue-600"
-          >
+          <div className="flex items-center space-x-4">
+            <Link
+              to="/cart"
+              className="relative p-2 text-gray-700 hover:text-blue-600"
+            >
             <svg
               className="w-6 h-6"
               fill="none"
@@ -43,7 +53,24 @@ function Header({ cartItemCount }) {
                 {cartItemCount}
               </span>
             )}
-          </Link>
+            </Link>
+
+            {isLoggedIn ? (
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
+              >
+                Logout
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded hover:bg-blue-50"
+              >
+                Login
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </header>
