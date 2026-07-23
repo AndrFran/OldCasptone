@@ -10,6 +10,7 @@ import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import OrderConfirmation from './pages/OrderConfirmation'
 import OrderTracking from './pages/OrderTracking'
+import UserProfile from './pages/UserProfile'
 
 function App() {
   const [cart, setCart] = useState([])
@@ -92,6 +93,7 @@ function App() {
               element={<OrderConfirmation />}
             />
             <Route path="/order-tracking" element={<OrderTracking />} />
+            <Route path="/user" element={<UserProfile />} />
           </Routes>
         </main>
         {userType !== 'ops_manager' && <Footer />}

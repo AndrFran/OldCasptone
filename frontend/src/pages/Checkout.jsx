@@ -11,9 +11,10 @@ function Checkout({ items, onOrderCreated }) {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
 
-  // Form state
+  // Prefill from localStorage/auth
+  const storedEmail = localStorage.getItem('email') || ''
   const [customerName, setCustomerName] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerEmail, setCustomerEmail] = useState(storedEmail)
   const [couponCode, setCouponCode] = useState('')
   const [couponValidated, setCouponValidated] = useState(null)
   const [validatingCoupon, setValidatingCoupon] = useState(false)
