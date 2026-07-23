@@ -54,7 +54,7 @@ function OpsDashboard() {
     const token = localStorage.getItem('token')
     try {
       await axios.patch(
-        `http://localhost:8000/orders/${orderId}`,
+        `http://localhost:8000/orders/${orderId}/status`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       )
