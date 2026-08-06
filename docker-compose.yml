@@ -1,0 +1,36 @@
+# Local orchestration for Vibe Strike (backend + frontend)
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      ENV: production
+      DATABASE_URL: sqlite:////data/vibestrike.db
+      CORS_ORIGINS: http://localhost:5173,http://localhost:80,http://localhost
+    volumes:
+      - backend-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Browser calls backend directly on host-mapped port
+        VITE_API_URL: http://localhost:8000
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend-data:

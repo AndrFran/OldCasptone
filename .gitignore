@@ -24,6 +24,11 @@ build/
 *.sublime-project
 *.sublime-workspace
 
+# Claude / Cursor local agent config
+.claude/settings.json
+.claude/settings.local.json
+.claude/check_secrets.py
+
 # Python
 __pycache__/
 *.py[cod]
@@ -39,7 +44,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
