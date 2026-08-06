@@ -1,0 +1,74 @@
+name: Terraform Deploy (reusable)
+
+# Called once per environment by terraform.yml. Kept reusable so dev/staging/prod
+# stay identical apart from the environment name.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment to deploy to (dev | staging | prod)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  TF_VERSION: "1.9.8"
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  deploy:
+    name: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+
+    # Manual approval + secrets/vars come from the GitHub Environment settings.
+    environment: ${{ inputs.environment }}
+
+    # Never let two deployments to the same environment overlap, and never
+    # cancel one mid-flight.
+    concurrency:
+      group: terraform-deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download approved plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ inputs.environment }}
+          path: terraform
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - run: terraform init
+
+      # DRY RUN: re-plan against the approved tfvars instead of applying.
+      # Replace with `terraform apply -auto-approve tfplan` to make it real.
+      - name: terraform plan (dry run)
+        run: |
+          terraform plan -no-color \
+            -var-file="envs/${{ inputs.environment }}.tfvars" \
+            | tee deploy-plan.txt
+
+      - name: Summary
+        run: |
+          {
+            echo "## Dry-run deployment — \`${{ inputs.environment }}\`"
+            echo "Approved by: **${{ github.actor }}** · commit \`${{ github.sha }}\`"
+            echo ""
+            echo "> \`terraform apply\` is intentionally skipped in this pipeline."
+            echo ""
+            echo '```hcl'
+            tail -c 50000 deploy-plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

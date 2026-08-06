@@ -79,3 +79,11 @@ logs/
 *.tmp
 *.temp
 .tmp/
+
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+tfplan
+tfplan.txt
+terraform/generated/
