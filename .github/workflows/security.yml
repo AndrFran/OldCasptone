@@ -21,6 +21,7 @@ concurrency:
 env:
   PYTHON_VERSION: "3.12" # matches backend/Dockerfile
   NODE_VERSION: "20" # matches frontend/Dockerfile
+  TRIVY_IMAGE: "aquasec/trivy:0.58.1" # pinned image — avoids marketplace action tag drift
 
 jobs:
   # ---------------------------------------------------------------- SAST stage
@@ -204,14 +205,18 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-      - name: Trivy image scan
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: vibe-strike-${{ matrix.service }}:scan
-          format: sarif
-          output: trivy-${{ matrix.service }}.sarif
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true # base-image CVEs with no patch are not actionable
+      # Run Trivy from its pinned image (scans the just-loaded daemon image via
+      # the mounted socket). ignore-unfixed: base-image CVEs with no patch are
+      # not actionable.
+      - name: Trivy image scan (SARIF)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/work" -w /work \
+            ${{ env.TRIVY_IMAGE }} image \
+            --severity HIGH,CRITICAL --ignore-unfixed --scanners vuln \
+            --format sarif --output trivy-${{ matrix.service }}.sarif \
+            vibe-strike-${{ matrix.service }}:scan
 
       - name: Upload SARIF
         if: always()
@@ -221,16 +226,16 @@ jobs:
           sarif_file: trivy-${{ matrix.service }}.sarif
           category: trivy-image-${{ matrix.service }}
 
-      # Re-run against the table formatter so the result is readable in the log
-      # even when SARIF upload is unavailable.
+      # Second run with the table formatter fails the job on findings and keeps
+      # the result readable in the log when SARIF upload is unavailable.
       - name: Fail on HIGH/CRITICAL
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: vibe-strike-${{ matrix.service }}:scan
-          format: table
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            ${{ env.TRIVY_IMAGE }} image \
+            --severity HIGH,CRITICAL --ignore-unfixed --scanners vuln \
+            --exit-code 1 \
+            vibe-strike-${{ matrix.service }}:scan
 
   # ----------------------------------------------------------- IaC scan stage
   iac:
@@ -243,14 +248,12 @@ jobs:
       - uses: actions/checkout@v4
 
       # Covers terraform/ and both Dockerfiles — misconfiguration rules, not CVEs.
-      - name: Trivy config scan
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: config
-          scan-ref: .
-          format: sarif
-          output: trivy-config.sarif
-          severity: HIGH,CRITICAL
+      - name: Trivy config scan (SARIF)
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work \
+            ${{ env.TRIVY_IMAGE }} config . \
+            --severity HIGH,CRITICAL \
+            --format sarif --output trivy-config.sarif
 
       - name: Upload SARIF
         if: always()
@@ -261,10 +264,7 @@ jobs:
           category: trivy-config
 
       - name: Fail on HIGH/CRITICAL
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: config
-          scan-ref: .
-          format: table
-          severity: HIGH,CRITICAL
-          exit-code: "1"
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work \
+            ${{ env.TRIVY_IMAGE }} config . \
+            --severity HIGH,CRITICAL --exit-code 1
