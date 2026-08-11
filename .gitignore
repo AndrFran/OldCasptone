@@ -62,6 +62,13 @@ MANIFEST
 .env.local
 .env.*.local
 
+# Secrets / tokens — never commit credential files
+*token*.txt
+*token*.json
+*secret*.txt
+*.pem
+*.key
+
 # Database
 *.db
 *.sqlite

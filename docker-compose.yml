@@ -30,7 +30,7 @@ services:
         # Browser calls backend directly on host-mapped port
         VITE_API_URL: http://localhost:8000
     ports:
-      - "80:80"
+      - "80:8080" # container listens on 8080 (unprivileged nginx)
     depends_on:
       backend:
         condition: service_healthy
