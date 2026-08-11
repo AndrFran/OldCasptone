@@ -1,7 +1,7 @@
 # Vibe Strike Backend Dependencies
 
 # Core FastAPI
-fastapi>=0.100.0
+fastapi>=0.141.1
 uvicorn[standard]>=0.20.0
 pydantic>=2.0.0
 
