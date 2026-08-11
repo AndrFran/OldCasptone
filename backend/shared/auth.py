@@ -2,14 +2,45 @@
 import bcrypt
 import jwt
 import os
+import secrets
+import warnings
 from datetime import datetime, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
 from shared.models import User
 
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+
+
+def _load_secret_key() -> str:
+    """Resolve the JWT signing key.
+
+    The key signs tokens whose `type` claim gates ops-manager endpoints, so a
+    known key is a full auth bypass. Outside development we refuse to start
+    without one rather than fall back to a shared default. In development we
+    generate a random per-process key so nothing predictable ever signs tokens.
+    """
+    key = os.getenv("SECRET_KEY")
+    if key:
+        return key
+
+    if os.getenv("ENV", "development").lower() == "production":
+        raise RuntimeError(
+            "SECRET_KEY environment variable is required in production. "
+            "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+        )
+
+    warnings.warn(
+        "SECRET_KEY is unset; using a random per-process key. Tokens will not "
+        "survive a restart. Set SECRET_KEY for stable dev sessions.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    return secrets.token_urlsafe(64)
+
+
+SECRET_KEY = _load_secret_key()
 
 
 def hash_password(password: str) -> str:

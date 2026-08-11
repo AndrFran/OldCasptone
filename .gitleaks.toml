@@ -1,0 +1,26 @@
+title = "Vibe Strike gitleaks configuration"
+
+# Start from gitleaks' built-in ruleset, then allowlist known non-secrets.
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+Confirmed non-secrets:
+- .secrets.baseline: a former detect-secrets baseline (SHA1 hashes, not live
+  credentials). Removed from HEAD but still present in history, which gitleaks
+  scans; allowlisted by path so it does not fail the scan.
+- .terraform.lock.hcl: provider zip checksums, not credentials.
+- Documentation / demo placeholders: example connection strings and the seed
+  user password used across guides and migrations.
+"""
+paths = [
+  '''\.secrets\.baseline''',
+  '''\.terraform\.lock\.hcl''',
+]
+regexes = [
+  '''your-secret-key-change-in-production''',
+  '''postgres:password@''',
+  '''user:password@''',
+  '''password123''',
+]

@@ -8,6 +8,10 @@ services:
       - "8000:8000"
     environment:
       ENV: production
+      # Required at runtime — the backend refuses to start without it (see
+      # backend/shared/auth.py). Left with an empty default so `docker compose
+      # build` works in CI without the secret; set it in .env before `up`.
+      SECRET_KEY: ${SECRET_KEY:-}
       DATABASE_URL: sqlite:////data/vibestrike.db
       CORS_ORIGINS: http://localhost:5173,http://localhost:80,http://localhost
     volumes:
@@ -27,7 +31,7 @@ services:
         # Browser calls backend directly on host-mapped port
         VITE_API_URL: http://localhost:8000
     ports:
-      - "80:80"
+      - "80:8080" # container listens on 8080 (unprivileged nginx)
     depends_on:
       backend:
         condition: service_healthy

@@ -7,7 +7,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     ENV=production
 
+# apt-get upgrade patches OS CVEs in the base image at build time so the
+# container scan doesn't fail on an outdated base digest.
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /data
@@ -16,6 +19,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# Run as a non-root user (Trivy AVD-DS-0002). Owns /app and the /data volume.
+RUN useradd --system --create-home --uid 10001 appuser \
+    && chown -R appuser:appuser /app /data
+USER appuser
 
 EXPOSE 8000
 

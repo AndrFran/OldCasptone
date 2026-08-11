@@ -1,0 +1,270 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly re-scan: advisories land after code stops changing.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+# Least privilege by default; jobs widen it only where needed.
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12" # matches backend/Dockerfile
+  NODE_VERSION: "20" # matches frontend/Dockerfile
+  TRIVY_IMAGE: "aquasec/trivy:0.58.1" # pinned image — avoids marketplace action tag drift
+
+jobs:
+  # ---------------------------------------------------------------- SAST stage
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      security-events: write # to publish results to the Security tab
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+
+      # Both languages here are interpreted, so autobuild is a no-op safety net
+      # rather than a real compile step.
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # Bandit runs on every runner, unlike CodeQL which only publishes with GitHub
+  # Advanced Security. It gates directly on medium+ findings so private repos
+  # still get a real SAST gate. -ll = report medium and high only.
+  bandit:
+    name: SAST (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Bandit
+        run: pip install --disable-pip-version-check bandit==1.9.4
+
+      - name: Bandit scan
+        run: |
+          bandit -r backend -ll \
+            --exclude backend/tests,backend/uc3-inventory/tests \
+            | tee bandit.txt
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### Bandit — backend (medium+ severity)"
+            echo '```'
+            cat bandit.txt 2>/dev/null || echo "no output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------- Dependency scan stage
+  deps-python:
+    name: Dependency scan (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install pip-audit
+        run: pip install --disable-pip-version-check pip-audit==2.7.3
+
+      # requirements.txt pins some packages and leaves others open (fastapi>=…),
+      # so pip-audit resolves the range before auditing.
+      - name: pip-audit
+        run: |
+          pip-audit \
+            --requirement backend/requirements.txt \
+            --desc \
+            --format columns | tee pip-audit.txt
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### pip-audit — backend"
+            echo '```'
+            cat pip-audit.txt 2>/dev/null || echo "no output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deps-node:
+    name: Dependency scan (Node)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # The repo has no package-lock.json, and `npm audit` requires one. Resolve
+      # the tree without installing it, then audit that.
+      - name: Resolve dependency tree
+        run: npm install --package-lock-only --no-audit --no-fund
+
+      - name: npm audit
+        run: npm audit --audit-level=high | tee npm-audit.txt
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### npm audit — frontend"
+            echo '```'
+            cat npm-audit.txt 2>/dev/null || echo "no output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # -------------------------------------------------------- Secret scan stage
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks walks history, not just the tip
+
+      # Run the image directly rather than gitleaks-action, which asks orgs for
+      # a licence key. --config allowlists confirmed non-secrets (documentation
+      # placeholders, lockfile hashes) — see .gitleaks.toml.
+      - name: Gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 \
+            detect --source=/repo --config=/repo/.gitleaks.toml \
+            --no-banner --redact \
+            --report-format sarif --report-path /repo/gitleaks.sarif
+
+      - name: Upload SARIF
+        if: always()
+        continue-on-error: true # needs Advanced Security when the repo is private
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+
+  # ----------------------------------------------------- Container scan stage
+  containers:
+    name: Container scan (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          push: false
+          load: true # Trivy scans from the local daemon
+          tags: vibe-strike-${{ matrix.service }}:scan
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      # Run Trivy from its pinned image (scans the just-loaded daemon image via
+      # the mounted socket). ignore-unfixed: base-image CVEs with no patch are
+      # not actionable.
+      - name: Trivy image scan (SARIF)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/work" -w /work \
+            ${{ env.TRIVY_IMAGE }} image \
+            --severity HIGH,CRITICAL --ignore-unfixed --scanners vuln \
+            --format sarif --output trivy-${{ matrix.service }}.sarif \
+            vibe-strike-${{ matrix.service }}:scan
+
+      - name: Upload SARIF
+        if: always()
+        continue-on-error: true # needs Advanced Security when the repo is private
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.service }}.sarif
+          category: trivy-image-${{ matrix.service }}
+
+      # Second run with the table formatter fails the job on findings and keeps
+      # the result readable in the log when SARIF upload is unavailable.
+      - name: Fail on HIGH/CRITICAL
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            ${{ env.TRIVY_IMAGE }} image \
+            --severity HIGH,CRITICAL --ignore-unfixed --scanners vuln \
+            --exit-code 1 \
+            vibe-strike-${{ matrix.service }}:scan
+
+  # ----------------------------------------------------------- IaC scan stage
+  iac:
+    name: IaC scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Covers terraform/ and both Dockerfiles — misconfiguration rules, not CVEs.
+      - name: Trivy config scan (SARIF)
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work \
+            ${{ env.TRIVY_IMAGE }} config . \
+            --severity HIGH,CRITICAL \
+            --format sarif --output trivy-config.sarif
+
+      - name: Upload SARIF
+        if: always()
+        continue-on-error: true # needs Advanced Security when the repo is private
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config
+
+      - name: Fail on HIGH/CRITICAL
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work \
+            ${{ env.TRIVY_IMAGE }} config . \
+            --severity HIGH,CRITICAL --exit-code 1

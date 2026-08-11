@@ -11,7 +11,7 @@ sqlalchemy==2.0.51
 alembic==1.12.1  # Database migrations
 
 # Environment
-python-dotenv==1.0.0
+python-dotenv==1.2.2  # was 1.0.0 — PYSEC-2026-2270
 
 # Testing
 pytest==7.4.3
@@ -19,6 +19,6 @@ pytest-asyncio==0.21.1
 httpx==0.25.2
 
 # Utilities
-python-multipart==0.0.6
+python-multipart==0.0.31  # was 0.0.6 — 8 CVEs incl. PYSEC-2024-38 (DoS)
 bcrypt==4.1.1
 PyJWT==2.13.0
