@@ -54,6 +54,38 @@ jobs:
         with:
           category: "/language:${{ matrix.language }}"
 
+  # Bandit runs on every runner, unlike CodeQL which only publishes with GitHub
+  # Advanced Security. It gates directly on medium+ findings so private repos
+  # still get a real SAST gate. -ll = report medium and high only.
+  bandit:
+    name: SAST (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Bandit
+        run: pip install --disable-pip-version-check bandit==1.9.4
+
+      - name: Bandit scan
+        run: |
+          bandit -r backend -ll \
+            --exclude backend/tests,backend/uc3-inventory/tests \
+            | tee bandit.txt
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### Bandit — backend (medium+ severity)"
+            echo '```'
+            cat bandit.txt 2>/dev/null || echo "no output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # ---------------------------------------------------- Dependency scan stage
   deps-python:
     name: Dependency scan (Python)
@@ -142,6 +174,20 @@ jobs:
         with:
           sarif_file: gitleaks.sarif
           category: gitleaks
+
+      # Second, independent detector. Gates on any secret NOT already recorded
+      # in .secrets.baseline, so known doc examples stay quiet but a newly
+      # committed credential fails the job.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: detect-secrets (diff against baseline)
+        run: |
+          pip install --disable-pip-version-check detect-secrets==1.5.0
+          detect-secrets scan --baseline .secrets.baseline
+          detect-secrets audit .secrets.baseline --report --fail-on-unaudited \
+            --fail-on-live
 
   # ----------------------------------------------------- Container scan stage
   containers:

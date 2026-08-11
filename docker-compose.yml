@@ -8,6 +8,9 @@ services:
       - "8000:8000"
     environment:
       ENV: production
+      # Required in production — the backend refuses to start without it.
+      # Provide via a .env file or your secret store; never commit a real value.
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env (python -c "import secrets; print(secrets.token_urlsafe(64))")}
       DATABASE_URL: sqlite:////data/vibestrike.db
       CORS_ORIGINS: http://localhost:5173,http://localhost:80,http://localhost
     volumes:
