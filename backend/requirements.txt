@@ -20,5 +20,5 @@ httpx==0.25.2
 
 # Utilities
 python-multipart==0.0.31  # was 0.0.6 — 8 CVEs incl. PYSEC-2024-38 (DoS)
-bcrypt==4.1.1
+bcrypt==5.0.0
 PyJWT==2.13.0
