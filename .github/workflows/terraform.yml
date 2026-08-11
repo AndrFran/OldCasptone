@@ -138,7 +138,7 @@ jobs:
             -out=tfplan | tee tfplan.txt
 
       - name: Upload plan
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tfplan-${{ matrix.environment }}
           path: |
