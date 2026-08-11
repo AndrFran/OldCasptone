@@ -37,7 +37,7 @@ jobs:
         working-directory: terraform
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download approved plan
         uses: actions/download-artifact@v4
