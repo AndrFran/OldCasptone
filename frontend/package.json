@@ -22,7 +22,7 @@
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^4.2.0",
+    "@vitejs/plugin-react": "^6.0.5",
     "autoprefixer": "^10.4.16",
     "playwright": "^1.40.0",
     "postcss": "^8.4.31",
