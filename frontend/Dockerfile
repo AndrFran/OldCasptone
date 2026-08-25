@@ -16,7 +16,7 @@ RUN npm run build
 
 # Unprivileged nginx runs as a non-root user (uid 101) and listens on 8080
 # by default — fixes Trivy AVD-DS-0002 without extra config juggling.
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
 
 # apk upgrade patches base-image CVEs (openssl/c-ares etc.) that fail the
 # container scan; run it as root, then drop back to the non-root user.
